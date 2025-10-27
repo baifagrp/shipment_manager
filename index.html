@@ -1,0 +1,2320 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>貨物管理系統</title>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="config.js"></script>
+  <style>
+    /* -------------------------
+       蘋果風格 UI 設計系統
+       - 使用系統字體、柔和陰影、圓角設計
+       - 響應式佈局，支援手機和桌面
+       - 列印樣式優化
+    -------------------------*/
+    :root {
+      --bg: #f6f7fb;
+      --card: #ffffff;
+      --muted: #6b7280;
+      --accent: #0a84ff;
+      --danger: #ff3b30;
+      --success: #28c76f;
+      --warning: #ff9500;
+      --border: #e6e9ef;
+      --shadow: 0 8px 20px rgba(12, 20, 40, 0.04);
+      --shadow-hover: 0 12px 24px rgba(12, 20, 40, 0.08);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", "PingFang TC", "Helvetica Neue", Arial;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: var(--bg);
+      color: #0b1320;
+      line-height: 1.5;
+    }
+
+    .app {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      min-height: 100vh;
+    }
+
+    /* 登入頁面樣式 */
+    .login-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #b0b0b0 0%, #343434 100%);
+    }
+
+    .login-card {
+      background: var(--card);
+      padding: 40px;
+      border-radius: 20px;
+      box-shadow: var(--shadow-hover);
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+    }
+
+    .login-logo {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, var(--accent), #5ac8fa);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+      box-shadow: 0 8px 24px rgba(10, 132, 255, 0.3);
+    }
+
+    .login-title {
+      font-size: 28px;
+      font-weight: 700;
+      margin: 0 0 8px;
+      color: #1d1d1f;
+    }
+
+    .login-subtitle {
+      color: var(--muted);
+      margin-bottom: 32px;
+    }
+
+    /* 主應用樣式 */
+    .main-app {
+      display: none;
+    }
+
+    .main-app.active {
+      display: block;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 24px;
+      padding: 16px 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .logo {
+      width: 56px;
+      height: 56px;
+      background: linear-gradient(135deg, var(--accent), #5ac8fa);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 6px 18px rgba(10, 132, 255, 0.2);
+    }
+
+    .brand-text h1 {
+      font-size: 24px;
+      font-weight: 700;
+      margin: 0;
+      color: #1d1d1f;
+    }
+
+    .brand-text .subtitle {
+      font-size: 14px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .user-avatar {
+      width: 40px;
+      height: 40px;
+      background: var(--accent);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 600;
+    }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .search-box {
+      position: relative;
+      min-width: 280px;
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 12px 16px 12px 44px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: 14px;
+      background: var(--card);
+      transition: all 0.2s ease;
+    }
+
+    .search-box input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.1);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      width: 16px;
+      height: 16px;
+    }
+
+    button, .btn {
+      border: none;
+      background: var(--accent);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(10, 132, 255, 0.2);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    button:hover, .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(10, 132, 255, 0.3);
+    }
+
+    .btn.ghost {
+      background: transparent;
+      color: var(--accent);
+      box-shadow: none;
+      border: 1px solid rgba(10, 132, 255, 0.2);
+    }
+
+    .btn.ghost:hover {
+      background: rgba(10, 132, 255, 0.05);
+    }
+
+    .btn.warn {
+      background: var(--danger);
+      box-shadow: 0 4px 12px rgba(255, 59, 48, 0.2);
+    }
+
+    .btn.warn:hover {
+      box-shadow: 0 6px 16px rgba(255, 59, 48, 0.3);
+    }
+
+    .btn.success {
+      background: var(--success);
+      box-shadow: 0 4px 12px rgba(40, 199, 111, 0.2);
+    }
+
+    .main {
+      display: grid;
+      grid-template-columns: 1fr 420px;
+      gap: 24px;
+    }
+
+    .card {
+      background: var(--card);
+      padding: 24px;
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    .card h3 {
+      margin: 0 0 20px;
+      font-size: 20px;
+      font-weight: 700;
+      color: #1d1d1f;
+    }
+
+    /* 表單樣式 */
+    .form-section {
+      margin-bottom: 24px;
+    }
+
+    .form-section h4 {
+      margin: 0 0 16px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #1d1d1f;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .form-row {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .form-group {
+      flex: 1;
+    }
+
+    .form-group.small {
+      width: 140px;
+      flex: none;
+    }
+
+    .form-group.medium {
+      width: 200px;
+      flex: none;
+    }
+
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: #1d1d1f;
+      margin-bottom: 8px;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: 14px;
+      background: var(--card);
+      transition: all 0.2s ease;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.1);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    /* 狀態標籤 */
+    .status-pill {
+      display: inline-block;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .status-物流單已建立 { background: #eef6ff; color: #0366d6; }
+    .status-包裹離店作業中 { background: #fff8e6; color: #b86b00; }
+    .status-包裹抵達理貨中心，處理中 { background: #e8f7ee; color: #1a8f3d; }
+    .status-包裹已配達取件門市 { background: #f0f4ff; color: #2b6be6; }
+    .status-取件成功 { background: #eefcf3; color: #0f9d58; }
+    .status-退回 { background: #ffecee; color: #d93025; }
+
+    /* 表格樣式 */
+    .table-container {
+      overflow-x: auto;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th {
+      background: #f8f9fa;
+      padding: 16px;
+      text-align: left;
+      font-weight: 600;
+      color: #1d1d1f;
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: 16px;
+      border-bottom: 1px solid #f2f4f8;
+      vertical-align: top;
+    }
+
+    tr:hover {
+      background: #f8f9fa;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn-small {
+      padding: 8px 12px;
+      font-size: 12px;
+      border-radius: 8px;
+    }
+
+    /* 詳情頁面 */
+    .detail-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 24px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .detail-info h2 {
+      margin: 0 0 8px;
+      font-size: 24px;
+      font-weight: 700;
+      color: #1d1d1f;
+    }
+
+    .detail-meta {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .detail-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .info-section {
+      margin-bottom: 24px;
+    }
+
+    .info-section h4 {
+      margin: 0 0 12px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #1d1d1f;
+    }
+
+    .info-content {
+      background: #f8f9fa;
+      padding: 16px;
+      border-radius: 12px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .history-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .history-item {
+      padding: 12px 0;
+      border-bottom: 1px solid #f2f4f8;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .history-item:last-child {
+      border-bottom: none;
+    }
+
+    .history-time {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    /* 載入狀態 */
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      color: var(--muted);
+    }
+
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border);
+      border-top: 2px solid var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 12px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* 空狀態 */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--muted);
+    }
+
+    .empty-icon {
+      width: 64px;
+      height: 64px;
+      background: #f8f9fa;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+      color: var(--muted);
+    }
+
+    /* 列印樣式 */
+    @media print {
+      body * { visibility: hidden; }
+      #print-area, #print-area * { visibility: visible; }
+      #print-area { position: fixed; left: 0; top: 0; width: 100%; }
+    }
+
+    /* 響應式設計 */
+    @media (max-width: 1024px) {
+      .main { grid-template-columns: 1fr; }
+      .controls { flex-wrap: wrap; }
+      .search-box { min-width: 200px; }
+    }
+
+    @media (max-width: 768px) {
+      .app { padding: 16px; }
+      .card { padding: 16px; }
+      .form-row { flex-direction: column; }
+      .form-group.small, .form-group.medium { width: 100%; }
+      .detail-header { flex-direction: column; gap: 16px; }
+      .detail-actions { width: 100%; }
+    }
+
+    /* 隱藏元素 */
+    .hidden { display: none !important; }
+
+    /* 用戶選單下拉 */
+    .user-menu-dropdown {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 8px;
+      background: var(--card);
+      border-radius: 12px;
+      box-shadow: var(--shadow-hover);
+      min-width: 200px;
+      z-index: 1000;
+      border: 1px solid var(--border);
+      display: none;
+    }
+
+    .user-menu-dropdown.show {
+      display: block;
+      animation: fadeInDown 0.2s ease;
+    }
+
+    @keyframes fadeInDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .user-menu-item {
+      padding: 12px 16px;
+      cursor: pointer;
+      transition: background 0.2s ease;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
+    }
+
+    .user-menu-item:last-child {
+      border-bottom: none;
+    }
+
+    .user-menu-item:hover {
+      background: var(--bg);
+    }
+
+    .user-menu-item:first-child {
+      border-radius: 12px 12px 0 0;
+    }
+
+    .user-menu-item:last-child {
+      border-radius: 0 0 12px 12px;
+    }
+
+    .user-menu-icon {
+      width: 20px;
+      text-align: center;
+    }
+
+    .user-info {
+      position: relative;
+    }
+
+     /* 成功/錯誤訊息 */
+     .message {
+       padding: 12px 16px;
+       border-radius: 12px;
+       margin-bottom: 16px;
+       font-size: 14px;
+       font-weight: 500;
+     }
+
+     .message.success {
+       background: #e8f7ee;
+       color: #1a8f3d;
+       border: 1px solid #c3e6cb;
+     }
+
+     .message.error {
+       background: #ffecee;
+       color: #d93025;
+       border: 1px solid #f5c6cb;
+     }
+
+     /* 對話框樣式 */
+     .modal-overlay {
+       display: none;
+       position: fixed;
+       top: 0;
+       left: 0;
+       right: 0;
+       bottom: 0;
+       background: rgba(0, 0, 0, 0.5);
+       z-index: 9999;
+       align-items: center;
+       justify-content: center;
+     }
+
+     .modal-overlay.show {
+       display: flex;
+       animation: fadeIn 0.3s ease;
+     }
+
+     @keyframes fadeIn {
+       from { opacity: 0; }
+       to { opacity: 1; }
+     }
+
+     .modal-dialog {
+       background: var(--card);
+       border-radius: 16px;
+       box-shadow: var(--shadow-hover);
+       max-width: 500px;
+       width: 90%;
+       max-height: 80vh;
+       overflow-y: auto;
+       animation: slideUp 0.3s ease;
+     }
+
+     @keyframes slideUp {
+       from {
+         opacity: 0;
+         transform: translateY(20px);
+       }
+       to {
+         opacity: 1;
+         transform: translateY(0);
+       }
+     }
+
+     .modal-header {
+       padding: 24px;
+       border-bottom: 1px solid var(--border);
+       display: flex;
+       justify-content: space-between;
+       align-items: center;
+     }
+
+     .modal-title {
+       font-size: 20px;
+       font-weight: 700;
+       margin: 0;
+     }
+
+     .modal-close {
+       background: transparent;
+       border: none;
+       font-size: 24px;
+       cursor: pointer;
+       color: var(--muted);
+       padding: 0;
+       width: 32px;
+       height: 32px;
+       border-radius: 8px;
+       display: flex;
+       align-items: center;
+       justify-content: center;
+       transition: all 0.2s;
+       box-shadow: none;
+     }
+
+     .modal-close:hover {
+       background: var(--bg);
+       color: #1d1d1f;
+       transform: none;
+     }
+
+     .modal-body {
+       padding: 24px;
+     }
+
+     .modal-footer {
+       padding: 16px 24px;
+       border-top: 1px solid var(--border);
+       display: flex;
+       justify-content: flex-end;
+       gap: 12px;
+     }
+
+     .form-section-modal {
+       margin-bottom: 20px;
+     }
+
+     .form-section-modal:last-child {
+       margin-bottom: 0;
+     }
+
+     .form-section-modal h4 {
+       margin: 0 0 12px;
+       font-size: 14px;
+       font-weight: 600;
+       color: var(--muted);
+       text-transform: uppercase;
+       letter-spacing: 0.5px;
+     }
+  </style>
+</head>
+<body>
+  <!-- 登入頁面 -->
+  <div id="loginPage" class="login-container">
+    <div class="login-card">
+      <div class="login-logo">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="2" y="6" width="20" height="12" rx="2" fill="white" opacity="0.9"/>
+          <path d="M4 10h16M4 14h10" stroke="white" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <h1 class="login-title">貨物管理系統</h1>
+      <p class="login-subtitle">請登入以使用系統</p>
+      
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="email">電子郵件</label>
+          <input type="email" id="email" required placeholder="請輸入您的電子郵件">
+        </div>
+        <div class="form-group">
+          <label for="password">密碼</label>
+          <input type="password" id="password" required placeholder="請輸入密碼">
+        </div>
+        <button type="submit" style="width: 100%; margin-top: 8px;">登入</button>
+      </form>
+      
+      <div id="loginMessage" class="message hidden"></div>
+    </div>
+  </div>
+
+  <!-- 主應用程式 -->
+  <div id="mainApp" class="main-app">
+    <div class="app">
+      <header>
+        <div class="brand">
+          <div class="logo">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="2" y="6" width="20" height="12" rx="2" fill="white" opacity="0.9"/>
+              <path d="M4 10h16M4 14h10" stroke="white" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="brand-text">
+            <h1>貨物管理</h1>
+            <div class="subtitle">貨物管理系統</div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <div class="search-box">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <path d="m21 21-4.35-4.35"></path>
+            </svg>
+            <input id="searchInput" placeholder="搜尋：單號、寄件人、收件人..." />
+          </div>
+          <button id="newShipmentBtn">新增貨件</button>
+          <button id="exportBtn" class="btn ghost">匯出資料</button>
+          <label class="btn ghost">
+            匯入資料
+            <input id="importFile" type="file" accept=".json" style="display:none"/>
+          </label>
+          <button id="posBtn" class="btn success">🛒 取件結帳</button>
+          <div class="user-info">
+            <div class="user-avatar" id="userAvatar">U</div>
+            <div>
+              <div id="userEmail"></div>
+              <div id="userRole" style="font-size: 12px; color: var(--muted);"></div>
+            </div>
+            <button id="userMenuBtn" class="btn ghost btn-small">選單</button>
+            <button id="logoutBtn" class="btn ghost btn-small">登出</button>
+            
+             <!-- 用戶選單下拉 -->
+             <div id="userMenuDropdown" class="user-menu-dropdown">
+          <div class="user-menu-item" onclick="navigateTo('shpsearch.html')">
+            <span class="user-menu-icon">🔍</span>
+            <span>包裹查詢</span>
+          </div>
+          <div class="user-menu-item" onclick="navigateTo('pages/sales.html')">
+            <span class="user-menu-icon">🛒</span>
+            <span>取件結帳系統</span>
+          </div>
+          <div class="user-menu-item" onclick="navigateTo('pages/checkin.html')">
+            <span class="user-menu-icon">🏷️</span>
+            <span>自助報到 Kiosk</span>
+          </div>
+          <div class="user-menu-item" onclick="navigateTo('pages/counter.html')">
+            <span class="user-menu-icon">🔔</span>
+            <span>櫃檯叫號管理</span>
+          </div>
+          <div class="user-menu-item" onclick="navigateTo('pages/display.html')">
+            <span class="user-menu-icon">🖥️</span>
+            <span>公播顯示畫面</span>
+          </div>
+          <div class="user-menu-item" onclick="showAccountSettings()">
+                 <span class="user-menu-icon">👤</span>
+                 <span>帳號設定</span>
+               </div>
+               <div class="user-menu-item" onclick="showHelp()">
+                 <span class="user-menu-icon">❓</span>
+                 <span>使用說明</span>
+               </div>
+               <div class="user-menu-item" onclick="showAbout()">
+                 <span class="user-menu-icon">ℹ️</span>
+                 <span>關於系統</span>
+               </div>
+             </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="main">
+        <!-- 左側：表單/列表 -->
+        <div class="card">
+          <!-- 新增/編輯表單 -->
+          <div id="formContainer" class="hidden">
+            <h3 id="formTitle">新增貨件</h3>
+            <form id="shipmentForm">
+              <div class="form-section">
+                <h4>寄件人資料</h4>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="senderName">姓名 *</label>
+                    <input type="text" id="senderName" name="sender_name" required />
+                  </div>
+                  <div class="form-group small">
+                    <label for="senderPhone">電話</label>
+                    <input type="tel" id="senderPhone" name="sender_phone" />
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="senderAddress">地址</label>
+                    <input type="text" id="senderAddress" name="sender_address" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-section">
+                <h4>收件人資料</h4>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="receiverName">姓名 *</label>
+                    <input type="text" id="receiverName" name="receiver_name" required />
+                  </div>
+                  <div class="form-group small">
+                    <label for="receiverPhone">電話</label>
+                    <input type="tel" id="receiverPhone" name="receiver_phone" />
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="receiverAddress">地址</label>
+                    <input type="text" id="receiverAddress" name="receiver_address" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-section">
+                <h4>貨物資訊</h4>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="itemName">貨物描述</label>
+                    <input type="text" id="itemName" name="item_name" />
+                  </div>
+                  <div class="form-group small">
+                    <label for="quantity">數量</label>
+                    <input type="number" id="quantity" name="quantity" min="1" value="1" />
+                  </div>
+                  <div class="form-group small">
+                    <label for="weight">重量(kg)</label>
+                    <input type="number" id="weight" name="weight" step="0.1" />
+                  </div>
+                  <div class="form-group small">
+                    <label for="codAmount">代收金額($)</label>
+                    <input type="number" id="codAmount" name="cod_amount" min="0" step="1" value="0" placeholder="0" />
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="notes">備註</label>
+                    <textarea id="notes" name="note" placeholder="其他注意事項..."></textarea>
+                  </div>
+                  <div class="form-group small">
+                    <label for="status">狀態</label>
+                    <select id="status" name="status">
+                      <option value="物流單已建立">物流單已建立</option>
+                      <option value="包裹離店作業中">包裹離店作業中</option>
+                      <option value="包裹抵達理貨中心，處理中">包裹抵達理貨中心，處理中</option>
+                      <option value="包裹已配達取件門市">包裹已配達取件門市</option>
+                      <option value="取件成功">取件成功</option>
+                      <option value="退回">退回</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 12px; margin-top: 24px;">
+                <button type="submit" id="saveBtn">儲存</button>
+                <button type="button" id="cancelBtn" class="btn ghost">取消</button>
+              </div>
+            </form>
+          </div>
+
+          <!-- 貨件列表 -->
+          <div id="listContainer">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+              <h3>貨件清單</h3>
+              <div style="color: var(--muted); font-size: 14px;">
+                總數：<span id="totalCount">0</span>
+              </div>
+            </div>
+            
+            <div id="listContent">
+              <div class="loading">
+                <div class="spinner"></div>
+                載入中...
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 右側：詳情視圖 -->
+        <div class="card">
+          <div id="detailEmpty" class="empty-state">
+            <div class="empty-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="6" width="20" height="12" rx="2"></rect>
+                <path d="M4 10h16M4 14h10"></path>
+              </svg>
+            </div>
+            <h3>選擇貨件</h3>
+            <p>請從左側列表選擇一筆貨件查看詳情</p>
+          </div>
+
+          <div id="detailContent" class="hidden">
+            <div class="detail-header">
+              <div class="detail-info">
+                <h2 id="detailId">貨件單號</h2>
+                <div class="detail-meta">
+                  建立時間：<span id="detailCreated"></span>
+                </div>
+              </div>
+              <div class="detail-actions">
+                <span id="detailStatus" class="status-pill">狀態</span>
+                <button id="nextStatusBtn" class="btn success btn-small">下一步</button>
+                <button id="printLabelBtn" class="btn btn-small">列印寄件單</button>
+                <button id="printReceiptBtn" class="btn ghost btn-small">列印收據</button>
+              </div>
+            </div>
+
+            <div class="info-section">
+              <h4>寄件人</h4>
+              <div class="info-content" id="senderInfo"></div>
+            </div>
+
+            <div class="info-section">
+              <h4>收件人</h4>
+              <div class="info-content" id="receiverInfo"></div>
+            </div>
+
+            <div class="info-section">
+              <h4>貨物資訊</h4>
+              <div class="info-content" id="parcelInfo"></div>
+            </div>
+
+            <div class="info-section">
+              <h4>處理歷史</h4>
+              <ul class="history-list" id="historyList"></ul>
+            </div>
+
+            <div style="display: flex; gap: 12px; margin-top: 24px;">
+              <button id="editBtn" class="btn ghost">編輯</button>
+              <button id="deleteBtn" class="btn warn">刪除</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 列印區域 -->
+  <div id="printArea" class="hidden">
+    <!-- 列印內容將動態生成 -->
+  </div>
+
+  <!-- 帳號設定對話框 -->
+  <div id="accountSettingsModal" class="modal-overlay">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">👤 帳號設定</h3>
+        <button class="modal-close" onclick="closeAccountSettings()">×</button>
+      </div>
+      <div class="modal-body">
+        <div id="accountMessage" class="message hidden"></div>
+        
+        <!-- 個人資料 -->
+        <div class="form-section-modal">
+          <h4>個人資料</h4>
+          <div class="form-group">
+            <label for="accountName">姓名</label>
+            <input type="text" id="accountName" placeholder="請輸入姓名">
+          </div>
+          <div class="form-group">
+            <label for="accountEmail">電子郵件</label>
+            <input type="email" id="accountEmail" disabled style="background: var(--bg); cursor: not-allowed;">
+          </div>
+          <div class="form-group">
+            <label for="accountRole">角色</label>
+            <input type="text" id="accountRole" disabled style="background: var(--bg); cursor: not-allowed;">
+          </div>
+        </div>
+
+        <!-- 修改密碼 -->
+        <div class="form-section-modal">
+          <h4>修改密碼</h4>
+          <div class="form-group">
+            <label for="currentPassword">目前密碼</label>
+            <input type="password" id="currentPassword" placeholder="請輸入目前密碼">
+          </div>
+          <div class="form-group">
+            <label for="newPassword">新密碼</label>
+            <input type="password" id="newPassword" placeholder="請輸入新密碼（至少 6 個字元）">
+          </div>
+          <div class="form-group">
+            <label for="confirmPassword">確認新密碼</label>
+            <input type="password" id="confirmPassword" placeholder="請再次輸入新密碼">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn ghost" onclick="closeAccountSettings()">取消</button>
+        <button class="btn" onclick="saveAccountSettings()">儲存變更</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 使用配置檔案
+    const SUPABASE_URL = CONFIG.SUPABASE.URL;
+    const SUPABASE_ANON_KEY = CONFIG.SUPABASE.ANON_KEY;
+
+    // 初始化 Supabase 客戶端
+    const { createClient } = supabase;
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // 全域變數
+    let currentUser = null;
+    let shipments = [];
+    let selectedShipmentId = null;
+    let isEditMode = false;
+
+    // DOM 元素
+    const loginPage = document.getElementById('loginPage');
+    const mainApp = document.getElementById('mainApp');
+    const loginForm = document.getElementById('loginForm');
+    const loginMessage = document.getElementById('loginMessage');
+    const userEmail = document.getElementById('userEmail');
+    const userRole = document.getElementById('userRole');
+    const userAvatar = document.getElementById('userAvatar');
+    const userMenuBtn = document.getElementById('userMenuBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+
+    // 表單元素
+    const formContainer = document.getElementById('formContainer');
+    const listContainer = document.getElementById('listContainer');
+    const formTitle = document.getElementById('formTitle');
+    const shipmentForm = document.getElementById('shipmentForm');
+    const saveBtn = document.getElementById('saveBtn');
+    const cancelBtn = document.getElementById('cancelBtn');
+
+    // 列表元素
+    const listContent = document.getElementById('listContent');
+    const totalCount = document.getElementById('totalCount');
+    const searchInput = document.getElementById('searchInput');
+
+    // 詳情元素
+    const detailEmpty = document.getElementById('detailEmpty');
+    const detailContent = document.getElementById('detailContent');
+    const detailId = document.getElementById('detailId');
+    const detailCreated = document.getElementById('detailCreated');
+    const detailStatus = document.getElementById('detailStatus');
+    const senderInfo = document.getElementById('senderInfo');
+    const receiverInfo = document.getElementById('receiverInfo');
+    const parcelInfo = document.getElementById('parcelInfo');
+    const historyList = document.getElementById('historyList');
+
+    // 按鈕元素
+    const newShipmentBtn = document.getElementById('newShipmentBtn');
+    const nextStatusBtn = document.getElementById('nextStatusBtn');
+    const printLabelBtn = document.getElementById('printLabelBtn');
+    const printReceiptBtn = document.getElementById('printReceiptBtn');
+    const editBtn = document.getElementById('editBtn');
+    const deleteBtn = document.getElementById('deleteBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const importFile = document.getElementById('importFile');
+    const posBtn = document.getElementById('posBtn');
+
+    // 工具函數
+    function showMessage(message, type = 'success') {
+      loginMessage.textContent = message;
+      loginMessage.className = `message ${type}`;
+      loginMessage.classList.remove('hidden');
+      setTimeout(() => {
+        loginMessage.classList.add('hidden');
+      }, 3000);
+    }
+
+    function generateTrackingNumber() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const time = String(now.getTime()).slice(-6);
+      return `${year}${month}${day}-${time}`;
+    }
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function formatDate(dateString) {
+      return new Date(dateString).toLocaleString('zh-TW');
+    }
+
+    // 認證相關函數
+    async function signIn(email, password) {
+      try {
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
+          email,
+          password
+        });
+        
+        if (error) throw error;
+        
+        currentUser = data.user;
+        showMessage(CONFIG.MESSAGES.SUCCESS.LOGIN, 'success');
+        setTimeout(() => {
+          showMainApp();
+        }, 1000);
+      } catch (error) {
+        showMessage(CONFIG.MESSAGES.ERROR.LOGIN + '：' + error.message, 'error');
+      }
+    }
+
+
+    async function signOut() {
+      try {
+        const { error } = await supabaseClient.auth.signOut();
+        if (error) throw error;
+        
+        currentUser = null;
+        showLoginPage();
+      } catch (error) {
+        console.error('登出錯誤：', error);
+      }
+    }
+
+    function showLoginPage() {
+      loginPage.style.display = 'flex';
+      mainApp.classList.remove('active');
+    }
+
+    async function loadUserInfo() {
+      if (currentUser) {
+        try {
+          const { data, error } = await supabaseClient
+            .from('users')
+            .select('name, role, email')
+            .eq('id', currentUser.id)
+            .single();
+
+          if (data) {
+            userEmail.textContent = data.email;
+            userRole.textContent = data.role === 'admin' ? '管理員' : 
+                                 data.role === 'staff' ? '員工' : '一般用戶';
+            userAvatar.textContent = (data.name || data.email).charAt(0).toUpperCase();
+          } else {
+            userEmail.textContent = currentUser.email;
+            userRole.textContent = '用戶';
+            userAvatar.textContent = currentUser.email.charAt(0).toUpperCase();
+          }
+        } catch (error) {
+          console.warn('載入用戶資訊失敗：', error);
+          userEmail.textContent = currentUser.email;
+          userRole.textContent = '用戶';
+          userAvatar.textContent = currentUser.email.charAt(0).toUpperCase();
+        }
+      }
+    }
+
+    function showMainApp() {
+      loginPage.style.display = 'none';
+      mainApp.classList.add('active');
+      loadUserInfo();
+      loadShipments();
+    }
+
+    // 貨件管理函數
+    async function loadShipments() {
+      try {
+        listContent.innerHTML = '<div class="loading"><div class="spinner"></div>載入中...</div>';
+        
+        const { data, error } = await supabaseClient
+          .from('shipments')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        shipments = data || [];
+        renderShipmentList();
+        updateTotalCount();
+      } catch (error) {
+        console.error('載入貨件失敗：', error);
+        listContent.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><h3>載入失敗</h3><p>無法載入貨件資料</p></div>';
+      }
+    }
+
+    function renderShipmentList(filterText = '') {
+      const filtered = shipments.filter(shipment => {
+        if (!filterText) return true;
+        const text = filterText.toLowerCase();
+        return (
+          shipment.tracking_no?.toLowerCase().includes(text) ||
+          shipment.receiver_name?.toLowerCase().includes(text) ||
+          shipment.sender_name?.toLowerCase().includes(text)
+        );
+      });
+
+      if (filtered.length === 0) {
+        listContent.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><h3>沒有貨件</h3><p>目前沒有符合條件的貨件</p></div>';
+        return;
+      }
+
+      const table = document.createElement('div');
+      table.className = 'table-container';
+      table.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>單號</th>
+              <th>收件人</th>
+              <th>貨物</th>
+              <th>狀態</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filtered.map(shipment => `
+              <tr>
+                <td>
+                  <div style="font-weight: 600;">${escapeHtml(shipment.tracking_no || '')}</div>
+                  <div style="font-size: 12px; color: var(--muted);">${formatDate(shipment.created_at)}</div>
+                </td>
+                <td>
+                  <div>${escapeHtml(shipment.receiver_name || '')}</div>
+                  <div style="font-size: 12px; color: var(--muted);">${escapeHtml(shipment.receiver_phone || '')}</div>
+                </td>
+                <td>
+                  <div>${escapeHtml(shipment.item_name || '')}</div>
+                  <div style="font-size: 12px; color: var(--muted);">數量：${shipment.quantity || 1}</div>
+                </td>
+                <td><span class="status-pill status-${shipment.status?.replace(/\s+/g, '').replace(/，/g, '') || '物流單已建立'}">${shipment.status || '物流單已建立'}</span></td>
+                <td>
+                  <div class="actions">
+                    <button class="btn btn-small" onclick="selectShipment(${shipment.id})">查看</button>
+                    <button class="btn ghost btn-small" onclick="advanceStatus(${shipment.id})">下一步</button>
+                    <button class="btn ghost btn-small" onclick="printShipment(${shipment.id})">列印</button>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+
+      listContent.innerHTML = '';
+      listContent.appendChild(table);
+    }
+
+    function updateTotalCount() {
+      totalCount.textContent = shipments.length;
+    }
+
+    async function selectShipment(shipmentId) {
+      selectedShipmentId = shipmentId;
+      const shipment = shipments.find(s => s.id === shipmentId);
+      if (shipment) {
+        await renderShipmentDetail(shipment);
+      }
+    }
+
+    async function renderShipmentDetail(shipment) {
+      detailEmpty.classList.add('hidden');
+      detailContent.classList.remove('hidden');
+
+      detailId.textContent = shipment.tracking_no || '無單號';
+      detailCreated.textContent = formatDate(shipment.created_at);
+      detailStatus.textContent = shipment.status || '物流單已建立';
+      detailStatus.className = `status-pill status-${(shipment.status || '物流單已建立').replace(/\s+/g, '').replace(/，/g, '')}`;
+
+      senderInfo.innerHTML = `
+        <div><strong>${escapeHtml(shipment.sender_name || '')}</strong></div>
+        <div style="color: var(--muted); margin-top: 4px;">
+          ${escapeHtml(shipment.sender_phone || '')} ${escapeHtml(shipment.sender_address || '')}
+        </div>
+      `;
+
+      receiverInfo.innerHTML = `
+        <div><strong>${escapeHtml(shipment.receiver_name || '')}</strong></div>
+        <div style="color: var(--muted); margin-top: 4px;">
+          ${escapeHtml(shipment.receiver_phone || '')} ${escapeHtml(shipment.receiver_address || '')}
+        </div>
+      `;
+
+      parcelInfo.innerHTML = `
+        <div><strong>${escapeHtml(shipment.item_name || '')}</strong></div>
+        <div style="color: var(--muted); margin-top: 4px;">
+          數量：${shipment.quantity || 1} | 重量：${shipment.weight || '未設定'}kg | 代收：$${shipment.cod_amount || 0}
+        </div>
+        <div style="color: var(--muted); margin-top: 4px;">
+          備註：${escapeHtml(shipment.note || '無')}
+        </div>
+      `;
+
+      // 載入完整的歷史記錄
+      await loadShipmentHistory(shipment.id);
+    }
+
+    async function loadShipmentHistory(shipmentId) {
+      try {
+        // 從 logs 表中讀取此貨件的所有變更記錄
+        const { data: logs, error } = await supabaseClient
+          .from('logs')
+          .select('*')
+          .eq('target_table', 'shipments')
+          .eq('target_id', shipmentId.toString())
+          .order('created_at', { ascending: true });
+
+        if (error) {
+          console.error('讀取歷史記錄失敗：', error);
+          // 如果讀取失敗，顯示簡化的歷史
+          const shipment = shipments.find(s => s.id === shipmentId);
+          historyList.innerHTML = `
+            <li class="history-item">
+              <span>建立貨件</span>
+              <span class="history-time">${formatDate(shipment.created_at)}</span>
+            </li>
+          `;
+          return;
+        }
+
+        // 構建歷史記錄 HTML
+        if (!logs || logs.length === 0) {
+          const shipment = shipments.find(s => s.id === shipmentId);
+          historyList.innerHTML = `
+            <li class="history-item">
+              <span>建立貨件</span>
+              <span class="history-time">${formatDate(shipment.created_at)}</span>
+            </li>
+          `;
+        } else {
+          historyList.innerHTML = logs.map(log => {
+            let actionText = '';
+            if (log.action === 'shipment_created') {
+              actionText = '建立貨件';
+            } else if (log.action === 'status_updated') {
+              const details = log.details || {};
+              actionText = `狀態更新：${details.old_status || ''} → ${details.new_status || ''}`;
+            } else if (log.action === 'shipment_deleted') {
+              actionText = '刪除貨件';
+            } else {
+              actionText = log.action;
+            }
+
+            return `
+              <li class="history-item">
+                <span>${escapeHtml(actionText)}</span>
+                <span class="history-time">${formatDate(log.created_at)}</span>
+              </li>
+            `;
+          }).join('');
+        }
+      } catch (error) {
+        console.error('載入歷史記錄時發生錯誤：', error);
+      }
+    }
+
+    async function saveShipment(formData) {
+      try {
+        const shipmentData = {
+          tracking_no: formData.tracking_no || generateTrackingNumber(),
+          sender_name: formData.sender_name,
+          sender_phone: formData.sender_phone,
+          sender_address: formData.sender_address,
+          receiver_name: formData.receiver_name,
+          receiver_phone: formData.receiver_phone,
+          receiver_address: formData.receiver_address,
+          item_name: formData.item_name,
+          quantity: parseInt(formData.quantity) || 1,
+          weight: parseFloat(formData.weight) || null,
+          cod_amount: parseFloat(formData.cod_amount) || 0,
+          note: formData.note,
+          status: formData.status || '物流單已建立',
+          created_by: currentUser.id
+        };
+
+        let result;
+        if (isEditMode && selectedShipmentId) {
+          // 更新現有貨件
+          const { data, error } = await supabaseClient
+            .from('shipments')
+            .update({
+              ...shipmentData,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', selectedShipmentId)
+            .select();
+
+          if (error) throw error;
+          result = data[0];
+        } else {
+          // 新增貨件
+          const { data, error } = await supabaseClient
+            .from('shipments')
+            .insert([shipmentData])
+            .select();
+
+          if (error) throw error;
+          result = data[0];
+        }
+
+        // 重新載入資料
+        await loadShipments();
+        
+        // 選擇新建立的貨件
+        if (!isEditMode) {
+          selectShipment(result.id);
+        }
+
+        hideForm();
+        showMessage(isEditMode ? '貨件更新成功！' : '貨件建立成功！', 'success');
+      } catch (error) {
+        console.error('儲存貨件失敗：', error);
+        showMessage('儲存失敗：' + error.message, 'error');
+      }
+    }
+
+    async function advanceStatus(shipmentId) {
+      try {
+        const shipment = shipments.find(s => s.id === shipmentId);
+        if (!shipment) return;
+
+        const statusFlow = CONFIG.APP.STATUS_FLOW;
+        const currentIndex = statusFlow.indexOf(shipment.status);
+        const nextStatus = currentIndex < statusFlow.length - 1 ? statusFlow[currentIndex + 1] : shipment.status;
+
+        if (nextStatus === shipment.status) {
+          showMessage(CONFIG.MESSAGES.ERROR.VALIDATION, 'error');
+          return;
+        }
+
+        const { error } = await supabaseClient
+          .from('shipments')
+          .update({ 
+            status: nextStatus,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', shipmentId);
+
+        if (error) throw error;
+
+        await loadShipments();
+        if (selectedShipmentId === shipmentId) {
+          selectShipment(shipmentId);
+        }
+        showMessage(CONFIG.MESSAGES.SUCCESS.UPDATE, 'success');
+      } catch (error) {
+        console.error('更新狀態失敗：', error);
+        showMessage('更新失敗：' + error.message, 'error');
+      }
+    }
+
+    async function deleteShipment(shipmentId) {
+      if (!confirm('確定要刪除此貨件嗎？此操作將同時刪除相關的報到記錄和取件記錄。')) return;
+
+      try {
+        // 先獲取貨件資訊
+        const { data: shipment, error: fetchError } = await supabaseClient
+          .from('shipments')
+          .select('tracking_no')
+          .eq('id', shipmentId)
+          .single();
+
+        if (fetchError) throw fetchError;
+        if (!shipment) {
+          throw new Error('找不到此貨件');
+        }
+
+        // 1. 先刪除 call_history（透過 checkin_records）
+        // 需要先找到所有相關的 checkin_records
+        const { data: checkins } = await supabaseClient
+          .from('checkin_records')
+          .select('id')
+          .eq('shipment_id', shipmentId);
+
+        if (checkins && checkins.length > 0) {
+          const checkinIds = checkins.map(c => c.id);
+          
+          // 刪除這些 checkin 的 call_history
+          const { error: callHistoryError } = await supabaseClient
+            .from('call_history')
+            .delete()
+            .in('checkin_id', checkinIds);
+
+          if (callHistoryError) {
+            console.warn('刪除叫號歷史時發生錯誤：', callHistoryError);
+          }
+        }
+
+        // 2. 刪除報到記錄
+        const { error: checkinError } = await supabaseClient
+          .from('checkin_records')
+          .delete()
+          .eq('shipment_id', shipmentId);
+
+        if (checkinError) {
+          console.warn('刪除報到記錄時發生錯誤：', checkinError);
+        }
+
+        // 3. 刪除取件交易記錄（使用 tracking_no）
+        const { error: transactionError } = await supabaseClient
+          .from('pickup_transactions')
+          .delete()
+          .eq('tracking_no', shipment.tracking_no);
+
+        if (transactionError) {
+          console.warn('刪除取件記錄時發生錯誤：', transactionError);
+        }
+
+        // 4. 刪除日誌記錄（如果 shipment_id 欄位存在）
+        const { error: logsError } = await supabaseClient
+          .from('logs')
+          .delete()
+          .eq('shipment_id', shipmentId);
+
+        if (logsError && logsError.code !== '42703') {
+          // 42703 = 欄位不存在，可以忽略
+          console.warn('刪除日誌記錄時發生錯誤：', logsError);
+        }
+
+        // 5. 最後刪除貨件本身
+        const { error } = await supabaseClient
+          .from('shipments')
+          .delete()
+          .eq('id', shipmentId);
+
+        if (error) throw error;
+
+        await loadShipments();
+        if (selectedShipmentId === shipmentId) {
+          selectedShipmentId = null;
+          showEmptyDetail();
+        }
+        showMessage('貨件及相關記錄刪除成功！', 'success');
+      } catch (error) {
+        console.error('刪除貨件失敗：', error);
+        showMessage('刪除失敗：' + error.message, 'error');
+      }
+    }
+
+    // 表單相關函數
+    function showForm(editMode = false) {
+      isEditMode = editMode;
+      formContainer.classList.remove('hidden');
+      listContainer.classList.add('hidden');
+      
+      if (editMode) {
+        formTitle.textContent = '編輯貨件';
+        fillFormWithShipmentData();
+      } else {
+        formTitle.textContent = '新增貨件';
+        clearForm();
+      }
+    }
+
+    function hideForm() {
+      formContainer.classList.add('hidden');
+      listContainer.classList.remove('hidden');
+      isEditMode = false;
+    }
+
+    function clearForm() {
+      shipmentForm.reset();
+      document.getElementById('quantity').value = 1;
+    }
+
+    function fillFormWithShipmentData() {
+      const shipment = shipments.find(s => s.id === selectedShipmentId);
+      if (!shipment) return;
+
+      document.getElementById('senderName').value = shipment.sender_name || '';
+      document.getElementById('senderPhone').value = shipment.sender_phone || '';
+      document.getElementById('senderAddress').value = shipment.sender_address || '';
+      document.getElementById('receiverName').value = shipment.receiver_name || '';
+      document.getElementById('receiverPhone').value = shipment.receiver_phone || '';
+      document.getElementById('receiverAddress').value = shipment.receiver_address || '';
+      document.getElementById('itemName').value = shipment.item_name || '';
+      document.getElementById('quantity').value = shipment.quantity || 1;
+      document.getElementById('weight').value = shipment.weight || '';
+      document.getElementById('codAmount').value = shipment.cod_amount || 0;
+      document.getElementById('notes').value = shipment.note || '';
+      document.getElementById('status').value = shipment.status || '物流單已建立';
+    }
+
+    function showEmptyDetail() {
+      detailEmpty.classList.remove('hidden');
+      detailContent.classList.add('hidden');
+    }
+
+    // 列印功能
+    function printShipment(shipmentId) {
+      const shipment = shipments.find(s => s.id === shipmentId);
+      if (!shipment) return;
+
+      const printContent = generatePrintContent(shipment, 'label');
+      const printWindow = window.open('', '_blank', 'width=400,height=600');
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.focus();
+    }
+
+    function generatePrintContent(shipment, type) {
+      const companyName = CONFIG.UI.PRINT.COMPANY.NAME;
+      const companyLogo = CONFIG.UI.PRINT.COMPANY.LOGO;
+      const companyAddress = CONFIG.UI.PRINT.COMPANY.ADDRESS;
+      const companyPhone = CONFIG.UI.PRINT.COMPANY.PHONE;
+      
+      const content = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>${type === 'receipt' ? '取貨收據' : '寄件單'}</title>
+          <style>
+            @page {
+              size: 88mm 140mm;
+              margin: 0;
+            }
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            body {
+              font-family: "Arial", "Microsoft JhengHei", sans-serif;
+              color: #000;
+              background: #fff;
+            }
+            .label {
+              width: 88mm;
+              height: 140mm;
+              padding: 2mm;
+              border: 2px solid #000;
+            }
+            
+            /* 表頭 */
+            .header {
+              text-align: center;
+              font-size: 11pt;
+              font-weight: bold;
+              padding: 1.5mm 0;
+              border-bottom: 1px solid #000;
+            }
+            
+            /* 寄件資訊 */
+            .info-box {
+              border: 1px solid #000;
+              margin: 1.5mm 0;
+              font-size: 7pt;
+              line-height: 1.3;
+            }
+            .info-title {
+              background: #000;
+              color: #fff;
+              padding: 1mm 2mm;
+              font-weight: bold;
+            }
+            .info-content {
+              padding: 1.5mm 2mm;
+            }
+            
+            /* 主要物流區 */
+            .main-section {
+              border: 1px solid #000;
+              margin: 1.5mm 0;
+              text-align: center;
+            }
+            .main-content {
+              display: flex;
+              padding: 2mm;
+              min-height: 35mm;
+            }
+            .left-part {
+              flex: 1;
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+              align-items: center;
+            }
+            .hash {
+              font-size: 48pt;
+              font-weight: bold;
+              line-height: 1;
+              color: #666;
+            }
+            .tracking-no {
+              font-size: 16pt;
+              font-weight: bold;
+              margin: 3mm 0 2mm 0;
+              letter-spacing: 1px;
+            }
+            .short-no {
+              font-size: 16pt;
+              font-weight: bold;
+              color: #000;
+              margin-top: 2mm;
+            }
+            .qr-box {
+              width: 28mm;
+              height: 28mm;
+              border: 1px solid #000;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              flex-shrink: 0;
+            }
+            
+            /* 取件區 */
+            .pickup-section {
+              border: 1px solid #000;
+              margin: 1.5mm 0;
+            }
+            .pickup-title {
+              background: #000;
+              color: #fff;
+              text-align: center;
+              padding: 2mm;
+              font-size: 12pt;
+              font-weight: bold;
+              letter-spacing: 8mm;
+            }
+            .pickup-body {
+              display: flex;
+              min-height: 25mm;
+            }
+            .pickup-left {
+              width: 35%;
+              border-right: 1px solid #000;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 8pt;
+              padding: 2mm;
+              text-align: center;
+            }
+            .pickup-right {
+              flex: 1;
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+              align-items: center;
+              padding: 2mm;
+            }
+            .addr {
+              font-size: 9pt;
+              margin-bottom: 1mm;
+            }
+            .name {
+              font-size: 18pt;
+              font-weight: bold;
+              margin: 1mm 0;
+            }
+            .code {
+              font-size: 32pt;
+              font-weight: bold;
+              font-family: "Consolas", monospace;
+            }
+            
+            /* 取件專用區 */
+            .barcode-section {
+              border: 1px solid #000;
+              text-align: center;
+              padding: 2mm;
+              margin: 1.5mm 0;
+              overflow: hidden;
+            }
+            .barcode-title {
+              font-size: 8pt;
+              font-weight: bold;
+              margin-bottom: 1mm;
+            }
+            .barcode {
+              margin: 1mm 0;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+            }
+            .barcode svg {
+              max-width: 100%;
+              height: auto;
+            }
+            .barcode-text {
+              font-size: 7pt;
+              letter-spacing: 0.5px;
+              margin-top: 0.5mm;
+            }
+            
+            /* 底部 */
+            .footer {
+              text-align: center;
+              font-size: 8pt;
+              color: #0066ff;
+              margin-top: 1mm;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="label">
+            <!-- 表頭 -->
+            <div class="header">${companyName} 寄件單</div>
+
+            <!-- 寄件資訊 -->
+            <div class="info-box">
+              <div class="info-title">寄件資訊</div>
+              <div class="info-content">
+                寄件人：${escapeHtml(shipment.sender_name || '')}<br>
+                電話：${escapeHtml(shipment.sender_phone || '')}<br>
+                地址：${escapeHtml(shipment.sender_address || '')}<br>
+                貨物：${escapeHtml(shipment.item_name || '')} × ${shipment.quantity || 1}<br>
+                ${shipment.cod_amount && shipment.cod_amount > 0 ? `代收：$${shipment.cod_amount}<br>` : ''}列印：${formatDate(new Date())}
+              </div>
+            </div>
+
+            <!-- 主要物流區 -->
+            <div class="main-section">
+              <div class="main-content">
+                <div class="left-part">
+                  <div class="tracking-no">${escapeHtml(shipment.tracking_no || '')}</div>
+                  <div class="short-no">${shipment.weight ? (shipment.weight + 'kg') : '待測'}</div>
+                </div>
+                <div class="qr-box">
+                  <div id="qrcode"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 取件區 -->
+            <div class="pickup-section">
+              <div class="pickup-title">取　件</div>
+              <div class="pickup-body">
+                <div class="pickup-left">請核對<br>末三碼</div>
+                <div class="pickup-right">
+                  <div class="addr">${escapeHtml(shipment.receiver_address || '')}</div>
+                  <div class="name">${escapeHtml(shipment.receiver_name || '')}</div>
+                  <div class="code">${escapeHtml((shipment.receiver_phone || '').slice(-3))}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 取件專用條碼 -->
+            <div class="barcode-section">
+              <div class="barcode" id="barcode"></div>
+              <div class="barcode-text">${escapeHtml(shipment.tracking_no || '')}</div>
+            </div>
+
+          </div>
+          <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+          <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
+          <script>
+            // 生成 QR Code 和條碼
+            window.onload = function() {
+              // 生成 QR Code
+              var qrcode = new QRCode(document.getElementById("qrcode"), {
+                text: "${escapeHtml(shipment.tracking_no || '')}",
+                width: 90,
+                height: 90,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.M
+              });
+              
+              // 生成條碼
+              var barcodeElement = document.getElementById("barcode");
+              var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+              barcodeElement.appendChild(svg);
+              
+              JsBarcode(svg, "${escapeHtml(shipment.tracking_no || '')}", {
+                format: "CODE128",
+                width: 1.2,
+                height: 35,
+                displayValue: false,
+                margin: 2
+              });
+              
+              // 等待生成後再列印
+              setTimeout(function() {
+                window.print();
+              }, 600);
+            };
+          <\/script>
+        </body>
+        </html>
+      `;
+
+      return content;
+    }
+
+    // 事件監聽器
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      await signIn(email, password);
+    });
+
+
+    logoutBtn.addEventListener('click', signOut);
+
+    newShipmentBtn.addEventListener('click', () => showForm(false));
+    cancelBtn.addEventListener('click', hideForm);
+
+    shipmentForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(shipmentForm);
+      const data = Object.fromEntries(formData.entries());
+      await saveShipment(data);
+    });
+
+    editBtn.addEventListener('click', () => showForm(true));
+    deleteBtn.addEventListener('click', () => deleteShipment(selectedShipmentId));
+    nextStatusBtn.addEventListener('click', () => advanceStatus(selectedShipmentId));
+
+    printLabelBtn.addEventListener('click', () => {
+      if (selectedShipmentId) {
+        const shipment = shipments.find(s => s.id === selectedShipmentId);
+        if (shipment) {
+          const printContent = generatePrintContent(shipment, 'label');
+          const printWindow = window.open('', '_blank', 'width=400,height=600');
+          printWindow.document.write(printContent);
+          printWindow.document.close();
+          printWindow.focus();
+        }
+      }
+    });
+
+    printReceiptBtn.addEventListener('click', () => {
+      if (selectedShipmentId) {
+        const shipment = shipments.find(s => s.id === selectedShipmentId);
+        if (shipment) {
+          const printContent = generatePrintContent(shipment, 'receipt');
+          const printWindow = window.open('', '_blank', 'width=400,height=600');
+          printWindow.document.write(printContent);
+          printWindow.document.close();
+          printWindow.focus();
+        }
+      }
+    });
+
+    searchInput.addEventListener('input', (e) => {
+      renderShipmentList(e.target.value);
+    });
+
+    exportBtn.addEventListener('click', () => {
+      const dataStr = JSON.stringify(shipments, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `shipments_${new Date().toISOString().split('T')[0]}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    });
+
+    importFile.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        
+        if (Array.isArray(data)) {
+          // 這裡可以添加匯入邏輯
+          showMessage('匯入功能開發中...', 'error');
+        } else {
+          showMessage('檔案格式錯誤', 'error');
+        }
+      } catch (error) {
+        showMessage('讀取檔案失敗', 'error');
+      }
+      
+      e.target.value = '';
+    });
+
+    posBtn.addEventListener('click', () => {
+      window.location.href = 'pages/sales.html';
+    });
+
+    // 用戶選單功能
+    const userMenuDropdown = document.getElementById('userMenuDropdown');
+    
+    userMenuBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      userMenuDropdown.classList.toggle('show');
+    });
+
+    // 點擊外部關閉選單
+    document.addEventListener('click', (e) => {
+      if (!userMenuDropdown.contains(e.target) && e.target !== userMenuBtn) {
+        userMenuDropdown.classList.remove('show');
+      }
+    });
+
+    // 選單功能函數
+    function navigateTo(url) {
+      window.location.href = url;
+    }
+
+     async function showAccountSettings() {
+       userMenuDropdown.classList.remove('show');
+       const modal = document.getElementById('accountSettingsModal');
+       modal.classList.add('show');
+       await loadAccountSettings();
+     }
+
+     async function loadAccountSettings() {
+       try {
+         // 載入用戶資料
+         const { data: user, error } = await supabaseClient
+           .from('users')
+           .select('*')
+           .eq('id', currentUser.id)
+           .single();
+
+         if (error) throw error;
+
+         // 填入表單
+         document.getElementById('accountName').value = user.name || '';
+         document.getElementById('accountEmail').value = user.email || currentUser.email;
+         
+         const roleText = user.role === 'admin' ? '管理員' : 
+                         user.role === 'staff' ? '員工' : '一般用戶';
+         document.getElementById('accountRole').value = roleText;
+
+         // 清空密碼欄位
+         document.getElementById('currentPassword').value = '';
+         document.getElementById('newPassword').value = '';
+         document.getElementById('confirmPassword').value = '';
+         
+         // 隱藏訊息
+         document.getElementById('accountMessage').classList.add('hidden');
+       } catch (error) {
+         console.error('載入帳號設定失敗：', error);
+         showAccountMessage('載入資料失敗', 'error');
+       }
+     }
+
+     function closeAccountSettings() {
+       const modal = document.getElementById('accountSettingsModal');
+       modal.classList.remove('show');
+     }
+
+     async function saveAccountSettings() {
+       const name = document.getElementById('accountName').value.trim();
+       const currentPassword = document.getElementById('currentPassword').value;
+       const newPassword = document.getElementById('newPassword').value;
+       const confirmPassword = document.getElementById('confirmPassword').value;
+
+       try {
+         let updated = false;
+
+         // 1. 更新個人資料（姓名）
+         if (name) {
+           const { error } = await supabaseClient
+             .from('users')
+             .update({ name: name })
+             .eq('id', currentUser.id);
+
+           if (error) throw error;
+           updated = true;
+         }
+
+         // 2. 更新密碼（如果有填寫）
+         if (currentPassword || newPassword || confirmPassword) {
+           // 驗證密碼欄位
+           if (!currentPassword) {
+             showAccountMessage('請輸入目前密碼', 'error');
+             return;
+           }
+           if (!newPassword) {
+             showAccountMessage('請輸入新密碼', 'error');
+             return;
+           }
+           if (newPassword.length < 6) {
+             showAccountMessage('新密碼至少需要 6 個字元', 'error');
+             return;
+           }
+           if (newPassword !== confirmPassword) {
+             showAccountMessage('新密碼與確認密碼不符', 'error');
+             return;
+           }
+
+           // 先驗證目前密碼
+           const { error: signInError } = await supabaseClient.auth.signInWithPassword({
+             email: currentUser.email,
+             password: currentPassword
+           });
+
+           if (signInError) {
+             showAccountMessage('目前密碼錯誤', 'error');
+             return;
+           }
+
+           // 更新密碼
+           const { error: updateError } = await supabaseClient.auth.updateUser({
+             password: newPassword
+           });
+
+           if (updateError) throw updateError;
+           updated = true;
+         }
+
+         if (updated) {
+           showAccountMessage('設定已儲存！', 'success');
+           // 重新載入用戶資訊
+           await loadUserInfo();
+           // 2 秒後關閉對話框
+           setTimeout(() => {
+             closeAccountSettings();
+           }, 2000);
+         } else {
+           showAccountMessage('沒有變更需要儲存', 'error');
+         }
+       } catch (error) {
+         console.error('儲存設定失敗：', error);
+         showAccountMessage('儲存失敗：' + error.message, 'error');
+       }
+     }
+
+     function showAccountMessage(text, type) {
+       const message = document.getElementById('accountMessage');
+       message.textContent = text;
+       message.className = `message ${type}`;
+       message.classList.remove('hidden');
+       
+       // 3 秒後自動隱藏
+       setTimeout(() => {
+         message.classList.add('hidden');
+       }, 3000);
+     }
+ 
+     function showHelp() {
+       userMenuDropdown.classList.remove('show');
+       const helpText = `
+📖 系統使用說明
+
+1️⃣ 新增貨件
+   • 點擊「新增貨件」按鈕
+   • 填寫寄件人、收件人資料
+   • 填寫貨物資訊
+   • 點擊「儲存」
+
+2️⃣ 查看貨件
+   • 從清單中點擊「查看」
+   • 右側顯示詳細資訊
+   • 可查看處理歷史
+
+3️⃣ 更新狀態
+   • 點擊「下一步」按鈕
+   • 自動更新至下一個狀態
+
+4️⃣ 列印寄件單
+   • 點擊「列印」按鈕
+   • 自動生成含 QR Code 的寄件單
+
+5️⃣ 包裹查詢（顧客端）
+   • 開啟「包裹查詢」頁面
+   • 輸入包裹編號查詢
+   • 查看包裹狀態與配送歷史
+   • 可分享查詢結果
+
+6️⃣ 自助報到
+   • 顧客在 Kiosk 輸入手機號碼
+   • 確認身份後完成報到
+   • 自動產生報到號碼
+   • 列印報到單
+
+7️⃣ 櫃檯叫號
+   • 進入「櫃檯叫號管理」
+   • 查看待叫號列表
+   • 點擊「叫號」通知顧客
+   • 準備包裹後前往結帳
+
+8️⃣ 公播顯示
+   • 開啟「公播顯示畫面」
+   • 連接至店內螢幕或電視
+   • 自動顯示叫號資訊
+   • 語音播報通知顧客
+
+9️⃣ 取件結帳
+   • 點擊「🛒 取件結帳」
+   • 進入 POS 系統
+   • 掃描單號或輸入手機末三碼
+   • 完成結帳
+
+如有問題，請聯繫系統管理員。
+         `;
+       alert(helpText);
+     }
+
+    function showAbout() {
+      userMenuDropdown.classList.remove('show');
+      const aboutText = `
+ℹ️ 關於系統
+
+📦 貨物管理系統
+版本：1.3.0
+
+功能：
+✅ 貨件管理
+✅ 狀態追蹤
+✅ 列印寄件單
+✅ 包裹查詢（顧客端）
+✅ POS 取件結帳
+✅ 手機末三碼查詢
+✅ 代收金額管理
+✅ 自助報到 Kiosk
+✅ 櫃檯叫號系統
+✅ 公播顯示畫面
+✅ 語音播報系統
+✅ 帳號設定管理
+
+技術：
+• Supabase 後端
+• Supabase Realtime 即時同步
+• 純 HTML/CSS/JavaScript
+• Web Speech API 語音播報
+• Web Share API 分享功能
+• 全螢幕顯示支援
+• 響應式設計（行動優先）
+
+© 2025 BaiFa.GRP
+          `;
+      alert(aboutText);
+    }
+
+    // 全域函數（供 HTML 調用）
+    window.selectShipment = selectShipment;
+    window.advanceStatus = advanceStatus;
+    window.printShipment = printShipment;
+
+    // 初始化
+    async function init() {
+      // 檢查是否已登入
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session) {
+        currentUser = session.user;
+        showMainApp();
+      } else {
+        showLoginPage();
+      }
+    }
+
+    // 監聽認證狀態變化
+    supabaseClient.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        currentUser = session.user;
+        showMainApp();
+      } else if (event === 'SIGNED_OUT') {
+        currentUser = null;
+        showLoginPage();
+      }
+    });
+
+    // 啟動應用程式
+    init();
+  </script>
+</body>
+</html>

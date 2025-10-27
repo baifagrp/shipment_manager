@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>叫號顯示系統</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../config.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: "Microsoft JhengHei", "Noto Sans TC", -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #b0b0b0 0%, #343434 100%);
+      min-height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 頭部區 - 店家 LOGO */
+    .header {
+      background: rgba(255, 255, 255, 0.95);
+      padding: 20px 40px;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .store-logo {
+      font-size: 36px;
+      font-weight: bold;
+      color: #1a1a1a;
+      letter-spacing: 2px;
+    }
+
+    /* 中央主區 - 叫號顯示 */
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+    }
+
+    .calling-section {
+      background: rgba(255, 255, 255, 0.98);
+      border-radius: 32px;
+      padding: 60px 80px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      text-align: center;
+      min-width: 800px;
+      animation: fadeIn 0.5s;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .calling-label {
+      font-size: 36px;
+      color: #6b7280;
+      margin-bottom: 20px;
+      font-weight: 600;
+    }
+
+    .calling-number {
+      font-size: 160px;
+      font-weight: bold;
+      color: #0a84ff;
+      font-family: "Courier New", monospace;
+      margin: 20px 0;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    .calling-instruction {
+      font-size: 42px;
+      color: #1f2937;
+      margin-top: 20px;
+      font-weight: 600;
+    }
+
+    .next-section {
+      margin-top: 40px;
+      padding-top: 40px;
+      border-top: 2px dashed #e5e7eb;
+    }
+
+    .next-label {
+      font-size: 28px;
+      color: #9ca3af;
+      margin-bottom: 10px;
+    }
+
+    .next-number {
+      font-size: 72px;
+      font-weight: bold;
+      color: #6b7280;
+      font-family: "Courier New", monospace;
+    }
+
+    /* 待機畫面 */
+    .idle-screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .idle-screen.active {
+      display: flex;
+    }
+
+    .idle-icon {
+      font-size: 120px;
+      margin-bottom: 40px;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-20px); }
+    }
+
+    .idle-title {
+      font-size: 48px;
+      font-weight: bold;
+      color: white;
+      margin-bottom: 20px;
+      text-shadow: 2px 2px 8px rgba(0,0,0,0.3);
+    }
+
+    .idle-subtitle {
+      font-size: 32px;
+      color: rgba(255, 255, 255, 0.9);
+      text-shadow: 1px 1px 4px rgba(0,0,0,0.3);
+    }
+
+    /* 底部區 - 店家訊息 */
+    .footer {
+      background: rgba(255, 255, 255, 0.95);
+      padding: 20px 40px;
+      text-align: center;
+      box-shadow: 0 -4px 12px rgba(0,0,0,0.1);
+    }
+
+    .footer-message {
+      font-size: 24px;
+      color: #4b5563;
+      margin-bottom: 10px;
+    }
+
+    .footer-slides {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      flex-wrap: wrap;
+    }
+
+    .footer-slide {
+      padding: 12px 24px;
+      background: #f3f4f6;
+      border-radius: 12px;
+      font-size: 18px;
+      color: #6b7280;
+      animation: slideIn 0.5s;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* 連線狀態 */
+    .connection-status {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      z-index: 1000;
+    }
+
+    .connection-status.connected {
+      background: #e8f7ee;
+      color: #28c76f;
+    }
+
+    .connection-status.disconnected {
+      background: #ffecee;
+      color: #ff3b30;
+    }
+
+    .connection-status.connecting {
+      background: #fff8e6;
+      color: #ff9500;
+    }
+
+    /* 等待動畫 */
+    .waiting-indicator {
+      display: inline-block;
+      animation: blink 1.5s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* 全螢幕模式 */
+    .fullscreen-btn {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 12px 20px;
+      background: rgba(255, 255, 255, 0.9);
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #0a84ff;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      transition: all 0.3s;
+      z-index: 999;
+    }
+
+    .fullscreen-btn:hover {
+      background: white;
+      transform: scale(1.05);
+    }
+
+    /* 音量控制 */
+    .volume-control {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 12px 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      z-index: 999;
+    }
+
+    .volume-control label {
+      font-size: 14px;
+      color: #6b7280;
+      margin-right: 10px;
+    }
+
+    .volume-control input {
+      width: 100px;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+  <!-- 連線狀態 -->
+  <div id="connectionStatus" class="connection-status connecting">
+    <span class="waiting-indicator">●</span> 連線中...
+  </div>
+
+  <!-- 頭部 - 店家 LOGO -->
+  <div class="header">
+    <div class="store-logo" id="storeLogo">載入中...</div>
+  </div>
+
+  <!-- 中央主區 -->
+  <div class="main-content">
+    <!-- 叫號顯示 -->
+    <div id="callingSection" class="calling-section" style="display: none;">
+      <div class="calling-label">🔔 現在叫號</div>
+      <div class="calling-number" id="currentNumber">---</div>
+      <div class="calling-instruction" id="callingInstruction">
+        請至櫃檯取件
+      </div>
+
+      <div class="next-section" id="nextSection" style="display: none;">
+        <div class="next-label">下一號</div>
+        <div class="next-number" id="nextNumber">---</div>
+      </div>
+    </div>
+
+    <!-- 待機畫面 -->
+    <div id="idleScreen" class="idle-screen active">
+      <div class="idle-icon">📦</div>
+      <div class="idle-title">歡迎光臨</div>
+      <div class="idle-subtitle">目前暫無叫號</div>
+    </div>
+  </div>
+
+  <!-- 底部 - 店家訊息 -->
+  <div class="footer">
+    <div class="footer-message" id="footerMessage">請耐心等待叫號</div>
+    <div class="footer-slides" id="footerSlides">
+      <div class="footer-slide">💰 取件請攜帶現金</div>
+      <div class="footer-slide">📱 本店支援行動支付</div>
+      <div class="footer-slide">🎉 感謝您的耐心等候</div>
+    </div>
+  </div>
+
+  <!-- 全螢幕按鈕 -->
+  <button class="fullscreen-btn" onclick="toggleFullscreen()">
+    🖥️ 全螢幕
+  </button>
+
+  <!-- 音量控制 -->
+  <div class="volume-control">
+    <label>🔊 音量</label>
+    <input type="range" id="volumeControl" min="0" max="100" value="80">
+  </div>
+
+  <script>
+    // Supabase 初始化
+    const { createClient } = supabase;
+    const supabaseClient = createClient(CONFIG.SUPABASE.URL, CONFIG.SUPABASE.ANON_KEY);
+
+    // 全域變數
+    let currentCalling = null;
+    let waitingQueue = [];
+    let realtimeChannel = null;
+    let currentVolume = 0.8;
+    let footerSlideIndex = 0;
+    let footerSlideInterval = null;
+
+    // 店家資訊
+    const storeInfo = {
+      name: CONFIG.UI.PRINT.COMPANY.NAME || '叫號系統',
+      messages: [
+        '💰 請先配妥您的現金',
+        '📱 預約貼膜請上https://linktr.ee/nphone/',
+        '🎉 感謝您的耐心等候',
+        '⏰ 營業時間：09:00-21:00',
+        '📞 服務專線：' + (CONFIG.UI.PRINT.COMPANY.PHONE || '02-xxxx-xxxx')
+      ]
+    };
+
+    // 初始化
+    async function init() {
+      // 設定店家 LOGO
+      document.getElementById('storeLogo').textContent = storeInfo.name;
+
+      // 設定音量
+      const volumeControl = document.getElementById('volumeControl');
+      volumeControl.addEventListener('input', (e) => {
+        currentVolume = e.target.value / 100;
+      });
+
+      // 載入當前叫號狀態
+      await loadCurrentCalling();
+
+      // 訂閱即時更新
+      subscribeToCallingUpdates();
+
+      // 啟動底部訊息輪播
+      startFooterSlides();
+
+      // 定期刷新（備用機制）
+      setInterval(loadCurrentCalling, 30000);
+    }
+
+    // 載入當前叫號狀態
+    async function loadCurrentCalling() {
+      try {
+        // 查詢今日的叫號記錄
+        const { data, error } = await supabaseClient
+          .from('checkin_records')
+          .select('*')
+          .gte('checkin_time', new Date().toISOString().split('T')[0])
+          .order('called_time', { ascending: false });
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          // 找到最近被叫號的
+          const called = data.find(c => c.status === '已叫號');
+          
+          if (called) {
+            currentCalling = called;
+            
+            // 找到下一個待叫號
+            const waiting = data
+              .filter(c => c.status === '待叫號')
+              .sort((a, b) => new Date(a.checkin_time) - new Date(b.checkin_time));
+            
+            waitingQueue = waiting;
+            
+            displayCalling(called, waiting[0]);
+          } else {
+            // 沒有正在叫號的，顯示待機畫面
+            displayIdle();
+          }
+        } else {
+          displayIdle();
+        }
+
+        updateConnectionStatus('connected');
+      } catch (error) {
+        console.error('載入叫號狀態失敗：', error);
+        updateConnectionStatus('disconnected');
+      }
+    }
+
+    // 顯示叫號
+    function displayCalling(current, next) {
+      const callingSection = document.getElementById('callingSection');
+      const idleScreen = document.getElementById('idleScreen');
+      const currentNumber = document.getElementById('currentNumber');
+      const callingInstruction = document.getElementById('callingInstruction');
+      const nextSection = document.getElementById('nextSection');
+      const nextNumber = document.getElementById('nextNumber');
+
+      // 顯示叫號區，隱藏待機畫面
+      callingSection.style.display = 'block';
+      idleScreen.classList.remove('active');
+
+      // 設定當前號碼
+      currentNumber.textContent = current.checkin_no;
+      callingInstruction.textContent = `請 ${current.checkin_no} 號至櫃檯取件`;
+
+      // 設定下一號
+      if (next) {
+        nextSection.style.display = 'block';
+        nextNumber.textContent = next.checkin_no;
+      } else {
+        nextSection.style.display = 'none';
+      }
+    }
+
+    // 顯示待機畫面
+    function displayIdle() {
+      const callingSection = document.getElementById('callingSection');
+      const idleScreen = document.getElementById('idleScreen');
+
+      callingSection.style.display = 'none';
+      idleScreen.classList.add('active');
+    }
+
+    // 訂閱即時更新
+    function subscribeToCallingUpdates() {
+      updateConnectionStatus('connecting');
+
+      realtimeChannel = supabaseClient
+        .channel('display_calling_updates')
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'checkin_records'
+        }, async (payload) => {
+          console.log('即時更新：', payload);
+
+          if (payload.eventType === 'UPDATE' && payload.new.status === '已叫號') {
+            // 有新的叫號
+            currentCalling = payload.new;
+            await loadCurrentCalling();
+            
+            // 播放語音
+            playCallingAnnouncement(payload.new.checkin_no);
+          } else {
+            // 其他變更，重新載入
+            await loadCurrentCalling();
+          }
+        })
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            updateConnectionStatus('connected');
+          } else if (status === 'CHANNEL_ERROR') {
+            updateConnectionStatus('disconnected');
+          }
+        });
+    }
+
+    // 播放叫號語音
+    function playCallingAnnouncement(checkinNo) {
+      if ('speechSynthesis' in window) {
+        // 停止當前播放
+        window.speechSynthesis.cancel();
+
+        // 創建新的語音
+        const utterance = new SpeechSynthesisUtterance(
+          `請 ${checkinNo} 號，至櫃檯取件。請 ${checkinNo} 號，至櫃檯取件。`
+        );
+        
+        utterance.lang = 'zh-TW';
+        utterance.rate = 0.85; // 語速稍慢
+        utterance.pitch = 1.0; // 音調
+        utterance.volume = currentVolume; // 音量
+
+        // 嘗試使用女聲
+        const voices = window.speechSynthesis.getVoices();
+        const femaleVoice = voices.find(v => 
+          v.lang.includes('zh') && v.name.includes('Female')
+        ) || voices.find(v => v.lang.includes('zh'));
+        
+        if (femaleVoice) {
+          utterance.voice = femaleVoice;
+        }
+
+        // 播放
+        window.speechSynthesis.speak(utterance);
+
+        // 視覺反饋
+        const currentNumber = document.getElementById('currentNumber');
+        currentNumber.style.color = '#ff3b30';
+        setTimeout(() => {
+          currentNumber.style.color = '#0a84ff';
+        }, 2000);
+      }
+    }
+
+    // 更新連線狀態
+    function updateConnectionStatus(status) {
+      const statusEl = document.getElementById('connectionStatus');
+      statusEl.className = `connection-status ${status}`;
+      
+      const statusText = {
+        connected: '● 已連線',
+        disconnected: '● 連線中斷',
+        connecting: '● 連線中...'
+      };
+      
+      statusEl.innerHTML = statusText[status] || statusText.connecting;
+    }
+
+    // 底部訊息輪播
+    function startFooterSlides() {
+      const footerSlides = document.getElementById('footerSlides');
+      
+      footerSlideInterval = setInterval(() => {
+        footerSlideIndex = (footerSlideIndex + 1) % storeInfo.messages.length;
+        
+        // 更新顯示
+        footerSlides.innerHTML = `
+          <div class="footer-slide">${storeInfo.messages[footerSlideIndex]}</div>
+        `;
+      }, 5000); // 每 5 秒切換
+    }
+
+    // 全螢幕切換
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+          console.error('全螢幕失敗：', err);
+        });
+      } else {
+        document.exitFullscreen();
+      }
+    }
+
+    // 鍵盤快捷鍵
+    document.addEventListener('keydown', (e) => {
+      // F11 或 F 切換全螢幕
+      if (e.key === 'F11' || e.key === 'f') {
+        e.preventDefault();
+        toggleFullscreen();
+      }
+      // ESC 退出全螢幕
+      else if (e.key === 'Escape' && document.fullscreenElement) {
+        document.exitFullscreen();
+      }
+      // R 重新載入
+      else if (e.key === 'r' || e.key === 'R') {
+        loadCurrentCalling();
+      }
+    });
+
+    // 頁面卸載時清理
+    window.addEventListener('beforeunload', () => {
+      if (realtimeChannel) {
+        supabaseClient.removeChannel(realtimeChannel);
+      }
+      if (footerSlideInterval) {
+        clearInterval(footerSlideInterval);
+      }
+      window.speechSynthesis.cancel();
+    });
+
+    // 啟動
+    init();
+
+    // 載入語音列表（等待語音API準備好）
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = () => {
+        console.log('語音列表已載入');
+      };
+    }
+  </script>
+</body>
+</html>
+

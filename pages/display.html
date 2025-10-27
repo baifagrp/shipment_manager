@@ -377,21 +377,34 @@
     // 載入當前叫號狀態
     async function loadCurrentCalling() {
       try {
-        // 查詢今日的叫號記錄
+        // 查詢今日的報到記錄
+        const today = new Date().toISOString().split('T')[0];
+        
+        console.log('🔍 查詢今日報到記錄：', today);
+        
         const { data, error } = await supabaseClient
           .from('checkin_records')
           .select('*')
-          .gte('checkin_time', new Date().toISOString().split('T')[0])
-          .order('called_time', { ascending: false });
+          .gte('checkin_time', today)
+          .order('checkin_time', { ascending: true });
 
-        if (error) throw error;
+        if (error) {
+          console.error('❌ 查詢失敗：', error);
+          throw error;
+        }
+
+        console.log('📋 查詢結果：', data);
 
         if (data && data.length > 0) {
-          // 找到最近被叫號的
-          const called = data.find(c => c.status === '已叫號');
+          // 找到最近被叫號的（按 called_time 排序）
+          const calledRecords = data
+            .filter(c => c.status === '已叫號' && c.called_time)
+            .sort((a, b) => new Date(b.called_time) - new Date(a.called_time));
           
-          if (called) {
-            currentCalling = called;
+          console.log('🔔 已叫號記錄：', calledRecords);
+          
+          if (calledRecords.length > 0) {
+            currentCalling = calledRecords[0]; // 取最新叫號的
             
             // 找到下一個待叫號
             const waiting = data
@@ -400,18 +413,21 @@
             
             waitingQueue = waiting;
             
-            displayCalling(called, waiting[0]);
+            console.log('✅ 顯示叫號：', currentCalling.checkin_no, '下一號：', waiting[0]?.checkin_no);
+            displayCalling(currentCalling, waiting[0]);
           } else {
             // 沒有正在叫號的，顯示待機畫面
+            console.log('⏸️ 無叫號，顯示待機畫面');
             displayIdle();
           }
         } else {
+          console.log('📭 無報到記錄');
           displayIdle();
         }
 
         updateConnectionStatus('connected');
       } catch (error) {
-        console.error('載入叫號狀態失敗：', error);
+        console.error('❌ 載入叫號狀態失敗：', error);
         updateConnectionStatus('disconnected');
       }
     }
@@ -462,24 +478,52 @@
           schema: 'public',
           table: 'checkin_records'
         }, async (payload) => {
-          console.log('即時更新：', payload);
+          console.log('🔔 即時更新收到：', payload);
 
-          if (payload.eventType === 'UPDATE' && payload.new.status === '已叫號') {
-            // 有新的叫號
-            currentCalling = payload.new;
-            await loadCurrentCalling();
+          if (payload.eventType === 'UPDATE') {
+            console.log('📝 更新事件：', payload.new);
             
-            // 播放語音
-            playCallingAnnouncement(payload.new.checkin_no);
-          } else {
-            // 其他變更，重新載入
+            // 檢查是否是叫號動作
+            if (payload.new.status === '已叫號' && payload.old?.status !== '已叫號') {
+              console.log('🎉 新叫號！', payload.new.checkin_no);
+              
+              // 立即更新顯示
+              currentCalling = payload.new;
+              await loadCurrentCalling();
+              
+              // 播放語音
+              setTimeout(() => {
+                playCallingAnnouncement(payload.new.checkin_no);
+              }, 500);
+            } else {
+              // 其他狀態變更，重新載入
+              console.log('🔄 其他更新，重新載入');
+              await loadCurrentCalling();
+            }
+          } else if (payload.eventType === 'INSERT') {
+            // 新報到
+            console.log('➕ 新報到記錄');
+            await loadCurrentCalling();
+          } else if (payload.eventType === 'DELETE') {
+            // 刪除記錄
+            console.log('🗑️ 記錄刪除');
             await loadCurrentCalling();
           }
         })
         .subscribe((status) => {
+          console.log('📡 訂閱狀態：', status);
+          
           if (status === 'SUBSCRIBED') {
+            console.log('✅ 即時更新已啟用');
             updateConnectionStatus('connected');
           } else if (status === 'CHANNEL_ERROR') {
+            console.error('❌ 頻道錯誤');
+            updateConnectionStatus('disconnected');
+          } else if (status === 'TIMED_OUT') {
+            console.error('⏱️ 連線逾時');
+            updateConnectionStatus('disconnected');
+          } else if (status === 'CLOSED') {
+            console.warn('🔌 連線關閉');
             updateConnectionStatus('disconnected');
           }
         });

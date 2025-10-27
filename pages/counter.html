@@ -439,7 +439,17 @@
       }
 
       container.innerHTML = checkins.map(checkin => {
-        const waitMinutes = Math.floor((new Date() - new Date(checkin.checkin_time)) / 60000);
+        // 計算等待時間
+        const now = new Date();
+        
+        // Supabase 儲存的時間沒有時區標記，需要加上 'Z' 強制解析為 UTC
+        // 這樣才能正確轉換成本地時間
+        const checkinTime = new Date(checkin.checkin_time + 'Z');
+        
+        // 計算時間差（毫秒）
+        const timeDiff = now.getTime() - checkinTime.getTime();
+        const waitMinutes = Math.max(0, Math.floor(timeDiff / (1000 * 60)));
+        
         const statusClass = checkin.status === '待叫號' ? 'waiting' : 
                            checkin.status === '已叫號' ? 'called' : 'completed';
         

@@ -323,6 +323,19 @@
   <div class="volume-control">
     <label>🔊 音量</label>
     <input type="range" id="volumeControl" min="0" max="100" value="80">
+    <button id="testVoiceBtn" style="margin-left: 10px; padding: 6px 12px; border: none; border-radius: 6px; background: #0a84ff; color: white; cursor: pointer; font-size: 14px;">
+      🎤 測試語音
+    </button>
+  </div>
+
+  <!-- 語音啟用提示（首次載入時顯示） -->
+  <div id="voiceEnablePrompt" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); color: white; padding: 40px 60px; border-radius: 20px; text-align: center; z-index: 9999; box-shadow: 0 20px 60px rgba(0,0,0,0.5);">
+    <div style="font-size: 48px; margin-bottom: 20px;">🔊</div>
+    <div style="font-size: 24px; margin-bottom: 20px; font-weight: 600;">啟用語音播報</div>
+    <div style="font-size: 16px; margin-bottom: 30px; color: rgba(255,255,255,0.8);">請點擊下方按鈕以啟用叫號語音功能</div>
+    <button id="enableVoiceBtn" style="padding: 12px 40px; border: none; border-radius: 12px; background: #0a84ff; color: white; font-size: 18px; font-weight: 600; cursor: pointer; transition: all 0.3s;">
+      ✅ 啟用語音
+    </button>
   </div>
 
   <script>
@@ -337,6 +350,8 @@
     let currentVolume = 0.8;
     let footerSlideIndex = 0;
     let footerSlideInterval = null;
+    let voiceEnabled = false; // 語音是否已啟用
+    let voicesLoaded = false; // 語音列表是否已載入
 
     // 店家資訊
     const storeInfo = {
@@ -359,7 +374,33 @@
       const volumeControl = document.getElementById('volumeControl');
       volumeControl.addEventListener('input', (e) => {
         currentVolume = e.target.value / 100;
+        console.log('🔊 音量調整為：', currentVolume);
       });
+
+      // 設定測試語音按鈕
+      document.getElementById('testVoiceBtn').addEventListener('click', () => {
+        console.log('🎤 測試語音按鈕點擊');
+        testVoice();
+      });
+
+      // 設定語音啟用按鈕
+      document.getElementById('enableVoiceBtn').addEventListener('click', () => {
+        console.log('✅ 啟用語音按鈕點擊');
+        enableVoice();
+        document.getElementById('voiceEnablePrompt').style.display = 'none';
+      });
+
+      // 檢查語音支援
+      if ('speechSynthesis' in window) {
+        // 顯示啟用提示（3秒後自動顯示）
+        setTimeout(() => {
+          if (!voiceEnabled) {
+            document.getElementById('voiceEnablePrompt').style.display = 'block';
+          }
+        }, 3000);
+      } else {
+        console.warn('⚠️ 瀏覽器不支援語音合成');
+      }
 
       // 載入當前叫號狀態
       await loadCurrentCalling();
@@ -372,6 +413,42 @@
 
       // 定期刷新（備用機制）
       setInterval(loadCurrentCalling, 30000);
+    }
+
+    // 啟用語音（需要用戶互動）
+    function enableVoice() {
+      if ('speechSynthesis' in window) {
+        // 載入語音列表
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length === 0) {
+          console.log('⏳ 等待語音列表載入...');
+          window.speechSynthesis.onvoiceschanged = () => {
+            const newVoices = window.speechSynthesis.getVoices();
+            console.log('✅ 語音列表已載入：', newVoices.length, '個');
+            voicesLoaded = true;
+          };
+        } else {
+          voicesLoaded = true;
+          console.log('✅ 語音列表已存在：', voices.length, '個');
+        }
+        
+        voiceEnabled = true;
+        console.log('✅ 語音已啟用');
+        
+        // 播放測試語音確認
+        const utterance = new SpeechSynthesisUtterance('語音系統已啟用');
+        utterance.lang = 'zh-TW';
+        utterance.volume = currentVolume;
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+
+    // 測試語音
+    function testVoice() {
+      if (!voiceEnabled) {
+        enableVoice();
+      }
+      playCallingAnnouncement('001');
     }
 
     // 載入當前叫號狀態
@@ -487,13 +564,18 @@
             if (payload.new.status === '已叫號' && payload.old?.status !== '已叫號') {
               console.log('🎉 新叫號！', payload.new.checkin_no);
               
+              // 先記錄要播報的號碼（重要！）
+              const numberToCall = payload.new.checkin_no;
+              console.log('📢 準備播報號碼：', numberToCall);
+              
               // 立即更新顯示
               currentCalling = payload.new;
               await loadCurrentCalling();
               
-              // 播放語音
+              // 播放語音（使用剛才記錄的號碼）
               setTimeout(() => {
-                playCallingAnnouncement(payload.new.checkin_no);
+                console.log('🔊 實際播報號碼：', numberToCall);
+                playCallingAnnouncement(numberToCall);
               }, 500);
             } else {
               // 其他狀態變更，重新載入
@@ -531,39 +613,80 @@
 
     // 播放叫號語音
     function playCallingAnnouncement(checkinNo) {
-      if ('speechSynthesis' in window) {
+      console.log('🔊 準備播放語音：', checkinNo);
+      
+      if (!('speechSynthesis' in window)) {
+        console.error('❌ 瀏覽器不支援語音合成');
+        return;
+      }
+
+      if (!voiceEnabled) {
+        console.warn('⚠️ 語音尚未啟用，請先點擊「啟用語音」按鈕');
+        // 顯示啟用提示
+        document.getElementById('voiceEnablePrompt').style.display = 'block';
+        return;
+      }
+
+      try {
         // 停止當前播放
         window.speechSynthesis.cancel();
 
-        // 創建新的語音
-        const utterance = new SpeechSynthesisUtterance(
-          `請 ${checkinNo} 號，至櫃檯取件。請 ${checkinNo} 號，至櫃檯取件。`
-        );
-        
-        utterance.lang = 'zh-TW';
-        utterance.rate = 0.85; // 語速稍慢
-        utterance.pitch = 1.0; // 音調
-        utterance.volume = currentVolume; // 音量
-
-        // 嘗試使用女聲
-        const voices = window.speechSynthesis.getVoices();
-        const femaleVoice = voices.find(v => 
-          v.lang.includes('zh') && v.name.includes('Female')
-        ) || voices.find(v => v.lang.includes('zh'));
-        
-        if (femaleVoice) {
-          utterance.voice = femaleVoice;
-        }
-
-        // 播放
-        window.speechSynthesis.speak(utterance);
-
-        // 視覺反饋
-        const currentNumber = document.getElementById('currentNumber');
-        currentNumber.style.color = '#ff3b30';
+        // 等待一下再播放（避免 cancel 影響）
         setTimeout(() => {
-          currentNumber.style.color = '#0a84ff';
-        }, 2000);
+          // 創建新的語音
+          const text = `請 ${checkinNo} 號，至櫃檯取件。請 ${checkinNo} 號，至櫃檯取件。`;
+          console.log('📢 語音內容：', text);
+          
+          const utterance = new SpeechSynthesisUtterance(text);
+          
+          utterance.lang = 'zh-TW';
+          utterance.rate = 0.85; // 語速稍慢
+          utterance.pitch = 1.0; // 音調
+          utterance.volume = currentVolume; // 音量
+
+          // 嘗試使用中文語音
+          const voices = window.speechSynthesis.getVoices();
+          console.log('🎤 可用語音列表：', voices.map(v => `${v.name} (${v.lang})`));
+          
+          const chineseVoice = voices.find(v => 
+            v.lang.includes('zh-TW') || v.lang.includes('zh-CN') || v.lang.includes('zh')
+          );
+          
+          if (chineseVoice) {
+            utterance.voice = chineseVoice;
+            console.log('✅ 使用語音：', chineseVoice.name);
+          } else {
+            console.warn('⚠️ 未找到中文語音，使用預設語音');
+          }
+
+          // 語音事件監聽
+          utterance.onstart = () => {
+            console.log('▶️ 語音開始播放');
+          };
+          
+          utterance.onend = () => {
+            console.log('⏹️ 語音播放完成');
+          };
+          
+          utterance.onerror = (e) => {
+            console.error('❌ 語音播放錯誤：', e);
+          };
+
+          // 播放
+          window.speechSynthesis.speak(utterance);
+          console.log('🎵 語音已送出播放');
+
+          // 視覺反饋
+          const currentNumber = document.getElementById('currentNumber');
+          if (currentNumber) {
+            currentNumber.style.color = '#ff3b30';
+            setTimeout(() => {
+              currentNumber.style.color = '#0a84ff';
+            }, 2000);
+          }
+        }, 100);
+      } catch (error) {
+        console.error('❌ 播放語音時發生錯誤：', error);
       }
     }
 

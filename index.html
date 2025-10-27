@@ -1514,61 +1514,79 @@
     async function deleteShipment(shipmentId) {
       if (!confirm('確定要刪除此貨件嗎？此操作將同時刪除相關的報到記錄和取件記錄。')) return;
 
+      console.log('🗑️ 開始刪除貨件：', shipmentId);
+
       try {
         // 先獲取貨件資訊
+        console.log('📋 1. 獲取貨件資訊...');
         const { data: shipment, error: fetchError } = await supabaseClient
           .from('shipments')
           .select('tracking_no')
           .eq('id', shipmentId)
           .single();
 
-        if (fetchError) throw fetchError;
+        if (fetchError) {
+          console.error('❌ 獲取貨件失敗：', fetchError);
+          throw fetchError;
+        }
         if (!shipment) {
           throw new Error('找不到此貨件');
         }
+        console.log('✅ 找到貨件：', shipment.tracking_no);
 
         // 1. 先刪除 call_history（透過 checkin_records）
-        // 需要先找到所有相關的 checkin_records
+        console.log('🔍 2. 查找相關報到記錄...');
         const { data: checkins } = await supabaseClient
           .from('checkin_records')
           .select('id')
           .eq('shipment_id', shipmentId);
 
         if (checkins && checkins.length > 0) {
+          console.log(`📞 3. 刪除 ${checkins.length} 個報到記錄的叫號歷史...`);
           const checkinIds = checkins.map(c => c.id);
           
-          // 刪除這些 checkin 的 call_history
           const { error: callHistoryError } = await supabaseClient
             .from('call_history')
             .delete()
             .in('checkin_id', checkinIds);
 
           if (callHistoryError) {
-            console.warn('刪除叫號歷史時發生錯誤：', callHistoryError);
+            console.error('❌ 刪除叫號歷史失敗：', callHistoryError);
+          } else {
+            console.log('✅ 叫號歷史已刪除');
           }
+        } else {
+          console.log('ℹ️ 無相關報到記錄');
         }
 
         // 2. 刪除報到記錄
+        console.log('🏷️ 4. 刪除報到記錄...');
         const { error: checkinError } = await supabaseClient
           .from('checkin_records')
           .delete()
           .eq('shipment_id', shipmentId);
 
         if (checkinError) {
-          console.warn('刪除報到記錄時發生錯誤：', checkinError);
+          console.error('❌ 刪除報到記錄失敗：', checkinError);
+        } else {
+          console.log('✅ 報到記錄已刪除');
         }
 
         // 3. 刪除取件交易記錄（使用 tracking_no）
+        console.log('💰 5. 刪除取件交易記錄...');
         const { error: transactionError } = await supabaseClient
           .from('pickup_transactions')
           .delete()
           .eq('tracking_no', shipment.tracking_no);
 
         if (transactionError) {
-          console.warn('刪除取件記錄時發生錯誤：', transactionError);
+          console.error('❌ 刪除取件記錄失敗：', transactionError);
+        } else {
+          console.log('✅ 取件記錄已刪除');
         }
 
         // 4. 刪除日誌記錄（優先使用 shipment_id，如果不存在則用 tracking_no）
+        console.log('📝 6. 刪除日誌記錄...');
         let logsDeleted = false;
         
         // 先嘗試使用 shipment_id
@@ -1580,19 +1598,19 @@
         if (logsError1) {
           if (logsError1.code === '42703') {
             // shipment_id 欄位不存在，使用 tracking_no
-            console.log('logs 表無 shipment_id 欄位，改用 tracking_no');
+            console.log('⚠️ logs 表無 shipment_id 欄位，改用 tracking_no');
             const { error: logsError2 } = await supabaseClient
               .from('logs')
               .delete()
               .eq('tracking_no', shipment.tracking_no);
             
             if (logsError2) {
-              console.warn('使用 tracking_no 刪除日誌失敗：', logsError2);
+              console.error('❌ 使用 tracking_no 刪除日誌失敗：', logsError2);
             } else {
               logsDeleted = true;
             }
           } else {
-            console.warn('刪除日誌記錄時發生錯誤：', logsError1);
+            console.error('❌ 刪除日誌記錄失敗：', logsError1);
           }
         } else {
           logsDeleted = true;
@@ -1603,12 +1621,19 @@
         }
 
         // 5. 最後刪除貨件本身
-        const { error } = await supabaseClient
+        console.log('📦 7. 刪除貨件本身...');
+        const { error: deleteError } = await supabaseClient
           .from('shipments')
           .delete()
           .eq('id', shipmentId);
 
-        if (error) throw error;
+        if (deleteError) {
+          console.error('❌ 刪除貨件失敗：', deleteError);
+          throw deleteError;
+        }
+        
+        console.log('✅ 貨件已刪除');
+        console.log('🎉 刪除流程完成！');
 
         await loadShipments();
         if (selectedShipmentId === shipmentId) {

@@ -1568,15 +1568,38 @@
           console.warn('刪除取件記錄時發生錯誤：', transactionError);
         }
 
-        // 4. 刪除日誌記錄（如果 shipment_id 欄位存在）
-        const { error: logsError } = await supabaseClient
+        // 4. 刪除日誌記錄（優先使用 shipment_id，如果不存在則用 tracking_no）
+        let logsDeleted = false;
+        
+        // 先嘗試使用 shipment_id
+        const { error: logsError1 } = await supabaseClient
           .from('logs')
           .delete()
           .eq('shipment_id', shipmentId);
 
-        if (logsError && logsError.code !== '42703') {
-          // 42703 = 欄位不存在，可以忽略
-          console.warn('刪除日誌記錄時發生錯誤：', logsError);
+        if (logsError1) {
+          if (logsError1.code === '42703') {
+            // shipment_id 欄位不存在，使用 tracking_no
+            console.log('logs 表無 shipment_id 欄位，改用 tracking_no');
+            const { error: logsError2 } = await supabaseClient
+              .from('logs')
+              .delete()
+              .eq('tracking_no', shipment.tracking_no);
+            
+            if (logsError2) {
+              console.warn('使用 tracking_no 刪除日誌失敗：', logsError2);
+            } else {
+              logsDeleted = true;
+            }
+          } else {
+            console.warn('刪除日誌記錄時發生錯誤：', logsError1);
+          }
+        } else {
+          logsDeleted = true;
+        }
+        
+        if (logsDeleted) {
+          console.log('✅ 日誌記錄已刪除');
         }
 
         // 5. 最後刪除貨件本身

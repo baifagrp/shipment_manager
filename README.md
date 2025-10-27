@@ -1483,12 +1483,6 @@ A：理論上無限，但建議：
 - **功能建議：** 透過 GitHub Discussions
 - **緊急支援：** service@example.com
 
-### 開發者
-
-**AI 進化論-花生**
-- 角色：系統架構師 & 全端開發
-- 專長：Supabase、JavaScript、UI/UX 設計
-
 ---
 
 ## 📄 授權與版權

@@ -1562,7 +1562,4 @@ SOFTWARE.
 **版本：** 1.2.0  
 **狀態：** ✅ 生產就緒
 
-© 2025 BaiFa.GRP - Made with ❤️ by AI進化論-花生
-#   s h i p m e n t _ m a n a g e r 
- 
- 
+© 2025 BaiFa.GRP

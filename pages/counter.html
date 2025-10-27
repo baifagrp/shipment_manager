@@ -374,20 +374,22 @@
 
     // 檢查登入
     async function checkAuth() {
-      const { data: { user } } = await supabaseClient.auth.getUser();
-      if (!user) {
+      const { data: { user }, error } = await supabaseClient.auth.getUser();
+      
+      if (error || !user) {
         alert('請先登入');
         window.location.href = '../index.html';
         return;
       }
 
-      const { data: userData } = await supabaseClient
-        .from('users')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      currentUser = { ...user, ...userData };
+      // 直接使用 auth.users 的資料
+      currentUser = {
+        id: user.id,
+        email: user.email,
+        name: user.user_metadata?.name || user.email.split('@')[0]
+      };
+      
+      console.log('✅ 櫃檯系統已登入：', currentUser.email);
     }
 
     // 載入報到記錄

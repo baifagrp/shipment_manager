@@ -768,8 +768,26 @@
       if (loading) loading.remove();
     }
 
+    // 檢查登入狀態
+    async function checkAuth() {
+      const { data: { user }, error } = await supabaseClient.auth.getUser();
+      
+      if (error || !user) {
+        alert('⚠️ Kiosk 系統需要登入\n請先登入後再開啟此頁面');
+        window.location.href = '../index.html';
+        return false;
+      }
+      
+      console.log('✅ Kiosk 已認證，操作員：', user.email);
+      return true;
+    }
+
     // 初始化
-    function init() {
+    async function init() {
+      // 🔐 認證檢查
+      const isAuthenticated = await checkAuth();
+      if (!isAuthenticated) return;
+
       updatePhoneDisplay();
       
       // 監聽鍵盤輸入

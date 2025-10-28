@@ -413,6 +413,58 @@
 
       // 定期刷新（備用機制）
       setInterval(loadCurrentCalling, 30000);
+      
+      // 快速輪詢檢測新叫號（備用語音觸發）
+      let lastCalledNumber = null;
+      let lastCalledTime = null;
+      
+      // 立即執行一次以記錄當前狀態
+      (async () => {
+        const today = new Date().toISOString().split('T')[0];
+        const { data } = await supabaseClient
+          .from('checkin_records')
+          .select('checkin_no, called_time')
+          .gte('checkin_time', today)
+          .eq('status', '已叫號')
+          .order('called_time', { ascending: false })
+          .limit(1);
+        
+        if (data && data.length > 0) {
+          lastCalledNumber = data[0].checkin_no;
+          lastCalledTime = data[0].called_time;
+          console.log('📍 初始叫號狀態：', lastCalledNumber, 'at', lastCalledTime);
+        }
+      })();
+      
+      setInterval(async () => {
+        const today = new Date().toISOString().split('T')[0];
+        const { data } = await supabaseClient
+          .from('checkin_records')
+          .select('checkin_no, called_time')
+          .gte('checkin_time', today)
+          .eq('status', '已叫號')
+          .order('called_time', { ascending: false })
+          .limit(1);
+        
+        if (data && data.length > 0) {
+          const latest = data[0];
+          
+          // 使用 called_time 判斷是否有新叫號（更準確）
+          if (latest.called_time !== lastCalledTime && lastCalledTime !== null) {
+            console.log('🔄 輪詢檢測到新叫號：', latest.checkin_no, '（上次：', lastCalledNumber, '）');
+            playCallingAnnouncement(latest.checkin_no);
+            
+            // 更新顯示
+            currentCalling = latest;
+            await loadCurrentCalling();
+          }
+          
+          lastCalledNumber = latest.checkin_no;
+          lastCalledTime = latest.called_time;
+        }
+      }, 3000); // 每 3 秒檢查一次
+      
+      console.log('🔄 備用輪詢已啟動（每 3 秒檢查新叫號）');
     }
 
     // 啟用語音（需要用戶互動）
@@ -448,7 +500,13 @@
       if (!voiceEnabled) {
         enableVoice();
       }
-      playCallingAnnouncement('001');
+      
+      // 獲取當前顯示的號碼
+      const currentNumberEl = document.getElementById('currentNumber');
+      const displayedNumber = currentNumberEl ? currentNumberEl.textContent : 'A001';
+      
+      console.log('🧪 測試語音 - 播報號碼：', displayedNumber);
+      playCallingAnnouncement(displayedNumber);
     }
 
     // 載入當前叫號狀態
@@ -511,6 +569,8 @@
 
     // 顯示叫號
     function displayCalling(current, next) {
+      console.log('🖥️ 更新顯示 - 當前:', current?.checkin_no, '下一號:', next?.checkin_no);
+      
       const callingSection = document.getElementById('callingSection');
       const idleScreen = document.getElementById('idleScreen');
       const currentNumber = document.getElementById('currentNumber');
@@ -522,9 +582,18 @@
       callingSection.style.display = 'block';
       idleScreen.classList.remove('active');
 
-      // 設定當前號碼
+      // 設定當前號碼（加入閃爍效果）
+      const oldNumber = currentNumber.textContent;
       currentNumber.textContent = current.checkin_no;
       callingInstruction.textContent = `請 ${current.checkin_no} 號至櫃檯取件`;
+      
+      // 如果號碼改變，添加視覺提示
+      if (oldNumber !== current.checkin_no) {
+        currentNumber.style.animation = 'none';
+        setTimeout(() => {
+          currentNumber.style.animation = 'pulse 1s ease-in-out 3';
+        }, 10);
+      }
 
       // 設定下一號
       if (next) {
@@ -533,6 +602,8 @@
       } else {
         nextSection.style.display = 'none';
       }
+      
+      console.log('✅ 顯示更新完成');
     }
 
     // 顯示待機畫面
@@ -556,6 +627,8 @@
           table: 'checkin_records'
         }, async (payload) => {
           console.log('🔔 即時更新收到：', payload);
+          console.log('事件類型：', payload.eventType);
+          console.log('舊狀態：', payload.old?.status, '→ 新狀態：', payload.new?.status);
 
           if (payload.eventType === 'UPDATE') {
             console.log('📝 更新事件：', payload.new);
@@ -564,19 +637,30 @@
             if (payload.new.status === '已叫號' && payload.old?.status !== '已叫號') {
               console.log('🎉 新叫號！', payload.new.checkin_no);
               
-              // 先記錄要播報的號碼（重要！）
+              // ⚡ 立即播報和顯示（不查詢資料庫，直接使用 payload）
               const numberToCall = payload.new.checkin_no;
               console.log('📢 準備播報號碼：', numberToCall);
               
-              // 立即更新顯示
-              currentCalling = payload.new;
-              await loadCurrentCalling();
+              // 立即播放語音
+              playCallingAnnouncement(numberToCall);
               
-              // 播放語音（使用剛才記錄的號碼）
-              setTimeout(() => {
-                console.log('🔊 實際播報號碼：', numberToCall);
-                playCallingAnnouncement(numberToCall);
-              }, 500);
+              // 立即更新顯示（使用 payload 資料）
+              currentCalling = payload.new;
+              
+              // 查詢下一個待叫號（異步，不阻塞顯示）
+              const today = new Date().toISOString().split('T')[0];
+              supabaseClient
+                .from('checkin_records')
+                .select('*')
+                .gte('checkin_time', today)
+                .eq('status', '待叫號')
+                .order('checkin_time', { ascending: true })
+                .limit(1)
+                .then(({ data }) => {
+                  const nextWaiting = data && data.length > 0 ? data[0] : null;
+                  displayCalling(payload.new, nextWaiting);
+                  console.log('✅ 叫號處理完成 - 當前:', payload.new.checkin_no, '下一號:', nextWaiting?.checkin_no);
+                });
             } else {
               // 其他狀態變更，重新載入
               console.log('🔄 其他更新，重新載入');
@@ -611,9 +695,20 @@
         });
     }
 
+    // 追蹤最後播放的號碼和時間（避免重複播放）
+    let lastPlayedNumber = null;
+    let lastPlayedTime = 0;
+
     // 播放叫號語音
     function playCallingAnnouncement(checkinNo) {
       console.log('🔊 準備播放語音：', checkinNo);
+      
+      // 防止重複播放（5 秒內相同號碼不重複播放）
+      const now = Date.now();
+      if (checkinNo === lastPlayedNumber && (now - lastPlayedTime) < 5000) {
+        console.warn('⏭️ 跳過重複播放：', checkinNo, '（上次播放在', Math.round((now - lastPlayedTime) / 1000), '秒前）');
+        return;
+      }
       
       if (!('speechSynthesis' in window)) {
         console.error('❌ 瀏覽器不支援語音合成');
@@ -628,11 +723,15 @@
       }
 
       try {
+        // 記錄播放資訊
+        lastPlayedNumber = checkinNo;
+        lastPlayedTime = now;
+        
         // 停止當前播放
         window.speechSynthesis.cancel();
 
         // 等待一下再播放（避免 cancel 影響）
-        setTimeout(() => {
+        setTimeout(async () => {
           // 創建新的語音
           const text = `請 ${checkinNo} 號，至櫃檯取件。請 ${checkinNo} 號，至櫃檯取件。`;
           console.log('📢 語音內容：', text);
@@ -670,7 +769,36 @@
           
           utterance.onerror = (e) => {
             console.error('❌ 語音播放錯誤：', e);
+            console.error('錯誤類型：', e.error);
+            console.error('錯誤訊息：', e.message);
+            
+            // 如果是 not-allowed 或 canceled 錯誤，嘗試重新啟用
+            if (e.error === 'not-allowed' || e.error === 'canceled') {
+              console.warn('⚠️ 語音被取消或不允許，請重新啟用語音');
+              voiceEnabled = false;
+              document.getElementById('voiceEnablePrompt').style.display = 'block';
+            } else if (e.error === 'interrupted') {
+              // 被中斷是正常的（通常是重複播放導致），不需要重試
+              console.log('ℹ️ 語音被中斷（可能是重複播放，已忽略）');
+            } else {
+              // 其他錯誤嘗試重播
+              console.log('🔄 嘗試重新播放...');
+              setTimeout(() => {
+                window.speechSynthesis.cancel();
+                setTimeout(() => {
+                  window.speechSynthesis.speak(utterance);
+                  console.log('🔄 重新播放語音');
+                }, 100);
+              }, 300);
+            }
           };
+
+          // 播放前再次確認語音合成可用
+          if (window.speechSynthesis.speaking) {
+            console.warn('⚠️ 語音合成正在播放，先取消');
+            window.speechSynthesis.cancel();
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
 
           // 播放
           window.speechSynthesis.speak(utterance);

@@ -1141,6 +1141,11 @@
       return `${year}${month}${day}-${time}`;
     }
 
+    // 生成 6 位數取貨驗證碼
+    function generateVerificationCode() {
+      return Math.floor(100000 + Math.random() * 900000).toString();
+    }
+
     function escapeHtml(text) {
       if (!text) return '';
       const div = document.createElement('div');
@@ -1348,6 +1353,13 @@
         <div style="color: var(--muted); margin-top: 4px;">
           數量：${shipment.quantity || 1} | 重量：${shipment.weight || '未設定'}kg | 代收：$${shipment.cod_amount || 0}
         </div>
+        ${shipment.verification_code ? `
+        <div style="background: #e6f3ff; padding: 12px; border-radius: 8px; margin-top: 8px; border: 1px solid #0a84ff;">
+          <strong style="color: #0a84ff;">🔐 取貨驗證碼：</strong>
+          <span style="font-family: 'Courier New', monospace; font-size: 20px; font-weight: bold; color: #0a84ff; letter-spacing: 2px;">${shipment.verification_code}</span>
+          <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">自助報到時需要輸入此驗證碼</div>
+        </div>
+        ` : ''}
         <div style="color: var(--muted); margin-top: 4px;">
           備註：${escapeHtml(shipment.note || '無')}
         </div>
@@ -1418,6 +1430,8 @@
 
     async function saveShipment(formData) {
       try {
+        const codAmount = parseFloat(formData.cod_amount) || 0;
+        
         const shipmentData = {
           tracking_no: formData.tracking_no || generateTrackingNumber(),
           sender_name: formData.sender_name,
@@ -1429,11 +1443,22 @@
           item_name: formData.item_name,
           quantity: parseInt(formData.quantity) || 1,
           weight: parseFloat(formData.weight) || null,
-          cod_amount: parseFloat(formData.cod_amount) || 0,
+          cod_amount: codAmount,
           note: formData.note,
           status: formData.status || '物流單已建立',
           created_by: currentUser.id
         };
+
+        // 🔐 安全機制：代收金額為 0 時自動生成取貨驗證碼
+        if (codAmount === 0) {
+          shipmentData.verification_code = generateVerificationCode();
+          shipmentData.require_code = true;
+          console.log('🎫 代收金額為 0，已生成取貨驗證碼：', shipmentData.verification_code);
+        } else {
+          shipmentData.verification_code = null;
+          shipmentData.require_code = false;
+          console.log('💰 代收金額為 $' + codAmount + '，不需要驗證碼');
+        }
 
         let result;
         if (isEditMode && selectedShipmentId) {
@@ -1469,7 +1494,13 @@
         }
 
         hideForm();
-        showMessage(isEditMode ? '貨件更新成功！' : '貨件建立成功！', 'success');
+        
+        // 顯示成功訊息
+        let successMsg = isEditMode ? '貨件更新成功！' : '貨件建立成功！';
+        if (result.verification_code) {
+          successMsg += ` ⚠️ 此包裹需要驗證碼取件，請透過簡訊或其他方式將驗證碼傳送給收件人。`;
+        }
+        showMessage(successMsg, 'success');
       } catch (error) {
         console.error('儲存貨件失敗：', error);
         showMessage('儲存失敗：' + error.message, 'error');
@@ -1951,6 +1982,17 @@
               <div class="barcode" id="barcode"></div>
               <div class="barcode-text">${escapeHtml(shipment.tracking_no || '')}</div>
             </div>
+
+            ${shipment.verification_code ? `
+            <!-- 需要驗證碼提示（不顯示驗證碼本身）-->
+            <div style="border: 2px solid #ff9500; border-radius: 2mm; padding: 3mm; margin: 1.5mm 0; background: #fff8e6; text-align: center;">
+              <div style="font-size: 9pt; font-weight: bold; color: #ff9500; margin-bottom: 1mm;">⚠️ 取件需要驗證碼</div>
+              <div style="font-size: 8pt; color: #666; line-height: 1.4;">
+                此包裹取件時需要輸入驗證碼<br>
+                驗證碼已透過簡訊/通知傳送給收件人
+              </div>
+            </div>
+            ` : ''}
 
           </div>
           <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>

@@ -541,8 +541,8 @@
           <span class="info-value" id="receiverName">-</span>
         </div>
         <div class="info-row">
-          <span class="info-label">取件門市</span>
-          <span class="info-value" id="storeName">-</span>
+          <span class="info-label">取件地址</span>
+          <span class="info-value" id="storeAddress">-</span>
         </div>
         <div class="info-row">
           <span class="info-label">包裹狀態</span>
@@ -620,6 +620,32 @@
       }
     }
 
+    // 遮蔽收件人姓名（保留首尾字，中間最多用兩個 O 遮蔽）
+    function maskReceiverName(name) {
+      if (!name || name.length === 0) {
+        return '---';
+      }
+      
+      // 單字名稱（例如：王）
+      if (name.length === 1) {
+        return name;
+      }
+      
+      // 兩字名稱（例如：王明 → 王O）
+      if (name.length === 2) {
+        return name[0] + 'O';
+      }
+      
+      // 三字以上名稱（例如：王小明 → 王O明、歐陽娜娜 → 歐OO娜）
+      // 中間最多只顯示兩個 O，即使名字再長
+      const firstChar = name[0];
+      const lastChar = name[name.length - 1];
+      const middleLength = name.length - 2;
+      const maskedMiddle = middleLength === 1 ? 'O' : 'OO';
+      
+      return firstChar + maskedMiddle + lastChar;
+    }
+
     // 查詢包裹
     async function searchPackage() {
       const trackingNo = trackingInput.value.trim();
@@ -671,8 +697,17 @@
     function displayResult(shipment, logs) {
       // 基本資訊
       document.getElementById('trackingNo').textContent = shipment.tracking_no;
-      document.getElementById('receiverName').textContent = shipment.receiver_name;
-      document.getElementById('storeName').textContent = CONFIG.UI.PRINT.COMPANY.NAME || '取件門市';
+      
+      // 收件人姓名遮蔽處理（例如：王小明 → 王O明、張三丰 → 張O丰、李四 → 李O）
+      const maskedName = maskReceiverName(shipment.receiver_name);
+      document.getElementById('receiverName').textContent = maskedName;
+      
+      // 取件地址（優先使用 receiver_address，沒有則使用店家地址）
+      const address = shipment.receiver_address || 
+                      CONFIG.UI.PRINT.COMPANY.ADDRESS || 
+                      '請洽詢客服';
+      document.getElementById('storeAddress').textContent = address;
+      
       document.getElementById('statusText').textContent = shipment.status;
       document.getElementById('updateTime').textContent = new Date(shipment.updated_at).toLocaleString('zh-TW');
 
@@ -699,7 +734,7 @@
 
       // 顯示提示訊息
       if (shipment.status === '包裹已配達取件門市' || shipment.status.includes('待取件')) {
-        showAlert('💡 包裹已到店，請前往門市櫃檯或使用自助報到機完成取件', 'info');
+        showAlert('💡 包裹已到達取件地點，請前往櫃檯或使用自助報到機完成取件', 'info');
       } else if (shipment.status === '取件成功' || shipment.status.includes('已取件')) {
         showAlert('✅ 此包裹已完成取件', 'success');
       }
@@ -769,7 +804,7 @@
     function shareResult() {
       const trackingNo = document.getElementById('trackingNo').textContent;
       const status = document.getElementById('statusText').textContent;
-      const storeName = document.getElementById('storeName').textContent;
+      const storeAddress = document.getElementById('storeAddress').textContent;
       const updateTime = document.getElementById('updateTime').textContent;
       
       // 取得代收金額（如果有）
@@ -787,7 +822,7 @@
       const text = `📦 包裹查詢結果\n\n` +
                    `包裹編號：${trackingNo}\n` +
                    `狀態：${status}\n` +
-                   `取件門市：${storeName}\n` +
+                   `取件地址：${storeAddress}\n` +
                    `更新時間：${updateTime}\n` +
                    (codAmount ? `代收金額：${codAmount}\n` : '') +
                    (isFileProtocol ? 

@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>包裹查詢 - 追蹤您的包裹</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../../config.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #0a84ff;
+      --success: #28c76f;
+      --warning: #ff9500;
+      --danger: #ff3b30;
+      --info: #5ac8fa;
+      --muted: #6b7280;
+      --bg: #f5f7fa;
+      --card-bg: #ffffff;
+      --border: #e5e7eb;
+      --text-primary: #1f2937;
+      --text-secondary: #6b7280;
+    }
+
+    body {
+      font-family: "Microsoft JhengHei", "Noto Sans TC", -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #b0b0b0 0%, #343434 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* 頭部 */
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+      animation: fadeIn 0.5s;
+    }
+
+    .logo {
+      font-size: 64px;
+      margin-bottom: 16px;
+    }
+
+    .title {
+      font-size: 28px;
+      font-weight: bold;
+      color: white;
+      margin-bottom: 8px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .subtitle {
+      font-size: 16px;
+      color: rgba(255, 255, 255, 0.9);
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+    }
+
+    /* 查詢卡片 */
+    .search-card {
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      margin-bottom: 24px;
+      animation: slideUp 0.5s;
+    }
+
+    .search-label {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+      display: block;
+    }
+
+    .search-input-group {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .search-input {
+      flex: 1;
+      padding: 14px 16px;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      font-size: 16px;
+      transition: all 0.3s;
+      font-family: "Courier New", monospace;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.1);
+    }
+
+    .search-btn {
+      padding: 14px 24px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      white-space: nowrap;
+    }
+
+    .search-btn:hover {
+      background: #0066cc;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(10, 132, 255, 0.3);
+    }
+
+    .search-btn:active {
+      transform: translateY(0);
+    }
+
+    .search-btn:disabled {
+      background: var(--muted);
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .search-hint {
+      font-size: 14px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* 結果卡片 */
+    .result-card {
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      margin-bottom: 24px;
+      animation: slideUp 0.5s;
+      display: none;
+    }
+
+    .result-card.show {
+      display: block;
+    }
+
+    .result-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .result-icon {
+      font-size: 48px;
+    }
+
+    .status-badge {
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-badge.待取件 {
+      background: #e8f7ee;
+      color: var(--success);
+    }
+
+    .status-badge.配送中 {
+      background: #e6f3ff;
+      color: var(--info);
+    }
+
+    .status-badge.已取件 {
+      background: #f3f4f6;
+      color: var(--muted);
+    }
+
+    .status-badge.物流單已建立,
+    .status-badge.包裹離店作業中,
+    .status-badge.包裹抵達理貨中心處理中 {
+      background: #e6f3ff;
+      color: var(--info);
+    }
+
+    .status-badge.包裹已配達取件門市 {
+      background: #e8f7ee;
+      color: var(--success);
+    }
+
+    .status-badge.取件成功 {
+      background: #f3f4f6;
+      color: var(--muted);
+    }
+
+    .result-body {
+      margin-bottom: 20px;
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .info-row:last-child {
+      border-bottom: none;
+    }
+
+    .info-label {
+      font-size: 14px;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .info-value {
+      font-size: 14px;
+      color: var(--text-primary);
+      font-weight: 600;
+      text-align: right;
+    }
+
+    .info-value.tracking {
+      font-family: "Courier New", monospace;
+      font-size: 13px;
+    }
+
+    .info-value.amount {
+      font-size: 20px;
+      color: var(--danger);
+    }
+
+    /* 提示訊息 */
+    .alert {
+      padding: 16px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      display: none;
+      animation: slideUp 0.3s;
+    }
+
+    .alert.show {
+      display: block;
+    }
+
+    .alert.success {
+      background: #e8f7ee;
+      color: var(--success);
+      border: 1px solid var(--success);
+    }
+
+    .alert.error {
+      background: #ffecee;
+      color: var(--danger);
+      border: 1px solid var(--danger);
+    }
+
+    .alert.info {
+      background: #e6f3ff;
+      color: var(--info);
+      border: 1px solid var(--info);
+    }
+
+    .alert.warning {
+      background: #fff8e6;
+      color: var(--warning);
+      border: 1px solid var(--warning);
+    }
+
+    /* 動作按鈕 */
+    .action-buttons {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #0066cc;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(10, 132, 255, 0.3);
+    }
+
+    .btn-secondary {
+      background: var(--bg);
+      color: var(--text-primary);
+      border: 2px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: white;
+      border-color: var(--primary);
+      transform: translateY(-2px);
+    }
+
+    /* 載入動畫 */
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 40px;
+      color: var(--text-secondary);
+    }
+
+    .loading.show {
+      display: block;
+    }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid var(--border);
+      border-top: 4px solid var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* 頁尾 */
+    .footer {
+      text-align: center;
+      padding: 24px;
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 14px;
+    }
+
+    .footer a {
+      color: white;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    /* 動畫 */
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* 響應式設計 */
+    @media (max-width: 480px) {
+      body {
+        padding: 12px;
+      }
+
+      .title {
+        font-size: 24px;
+      }
+
+      .search-card, .result-card {
+        padding: 20px;
+      }
+
+      .search-input-group {
+        flex-direction: column;
+      }
+
+      .search-btn {
+        width: 100%;
+      }
+
+      .action-buttons {
+        flex-direction: column;
+      }
+    }
+
+    /* 歷史記錄 */
+    .history-section {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 2px solid var(--border);
+    }
+
+    .history-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .timeline {
+      position: relative;
+      padding-left: 32px;
+    }
+
+    .timeline-item {
+      position: relative;
+      padding-bottom: 20px;
+    }
+
+    .timeline-item:last-child {
+      padding-bottom: 0;
+    }
+
+    .timeline-item::before {
+      content: '';
+      position: absolute;
+      left: -25px;
+      top: 6px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--primary);
+      border: 2px solid white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .timeline-item::after {
+      content: '';
+      position: absolute;
+      left: -20px;
+      top: 18px;
+      width: 2px;
+      height: calc(100% - 6px);
+      background: var(--border);
+    }
+
+    .timeline-item:last-child::after {
+      display: none;
+    }
+
+    .timeline-status {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .timeline-time {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- 頭部 -->
+    <div class="header">
+      <div class="logo">📦</div>
+      <h1 class="title">包裹查詢</h1>
+      <p class="subtitle">輸入包裹編號，即時追蹤包裹狀態</p>
+    </div>
+
+    <!-- 查詢卡片 -->
+    <div class="search-card">
+      <label class="search-label">包裹編號</label>
+      <div class="search-input-group">
+        <input 
+          type="text" 
+          id="trackingInput" 
+          class="search-input" 
+          placeholder="請輸入包裹編號（例如：SHP-20251027-8893）"
+          autocomplete="off"
+        >
+        <button id="searchBtn" class="search-btn">🔍 查詢</button>
+      </div>
+      <div class="search-hint">
+        💡 提示：包裹編號可在取件單或簡訊通知中找到
+      </div>
+    </div>
+
+    <!-- 載入動畫 -->
+    <div id="loading" class="loading">
+      <div class="spinner"></div>
+      <div>查詢中...</div>
+    </div>
+
+    <!-- 提示訊息 -->
+    <div id="alert" class="alert"></div>
+
+    <!-- 結果卡片 -->
+    <div id="resultCard" class="result-card">
+      <div class="result-header">
+        <div class="result-icon">📦</div>
+        <div id="statusBadge" class="status-badge">待取件</div>
+      </div>
+
+      <div class="result-body">
+        <div class="info-row">
+          <span class="info-label">包裹編號</span>
+          <span class="info-value tracking" id="trackingNo">-</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">收件人</span>
+          <span class="info-value" id="receiverName">-</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">取件地址</span>
+          <span class="info-value" id="storeAddress">-</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">包裹狀態</span>
+          <span class="info-value" id="statusText">-</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">更新時間</span>
+          <span class="info-value" id="updateTime">-</span>
+        </div>
+        <div class="info-row" id="codRow" style="display: none;">
+          <span class="info-label">代收金額</span>
+          <span class="info-value amount" id="codAmount">NT$ 0</span>
+        </div>
+      </div>
+
+      <!-- 歷史記錄 -->
+      <div class="history-section" id="historySection" style="display: none;">
+        <div class="history-title">
+          📋 配送歷史
+        </div>
+        <div class="timeline" id="timeline">
+          <!-- 動態生成 -->
+        </div>
+      </div>
+
+      <div class="action-buttons">
+        <button class="btn btn-secondary" onclick="resetSearch()">
+          🔄 重新查詢
+        </button>
+        <button class="btn btn-primary" onclick="shareResult()">
+          📤 分享結果
+        </button>
+      </div>
+    </div>
+
+    <!-- 頁尾 -->
+    <div class="footer">
+      <p>© 2025 <a href="../../index.html">貨物管理系統</a></p>
+      <p>需要幫助？</p>
+    </div>
+  </div>
+
+  <script>
+    // Supabase 初始化
+    const { createClient } = supabase;
+    const supabaseClient = createClient(CONFIG.SUPABASE.URL, CONFIG.SUPABASE.ANON_KEY);
+
+    // DOM 元素
+    const trackingInput = document.getElementById('trackingInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const loading = document.getElementById('loading');
+    const alert = document.getElementById('alert');
+    const resultCard = document.getElementById('resultCard');
+    const historySection = document.getElementById('historySection');
+    const timeline = document.getElementById('timeline');
+
+    // 初始化
+    function init() {
+      // 監聽輸入框 Enter 鍵
+      trackingInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          searchPackage();
+        }
+      });
+
+      // 監聽查詢按鈕
+      searchBtn.addEventListener('click', searchPackage);
+
+      // 檢查 URL 參數
+      const urlParams = new URLSearchParams(window.location.search);
+      const tracking = urlParams.get('tracking');
+      if (tracking) {
+        trackingInput.value = tracking;
+        searchPackage();
+      }
+    }
+
+    // 遮蔽收件人姓名（保留首尾字，中間最多用兩個 O 遮蔽）
+    function maskReceiverName(name) {
+      if (!name || name.length === 0) {
+        return '---';
+      }
+      
+      // 單字名稱（例如：王）
+      if (name.length === 1) {
+        return name;
+      }
+      
+      // 兩字名稱（例如：王明 → 王O）
+      if (name.length === 2) {
+        return name[0] + 'O';
+      }
+      
+      // 三字以上名稱（例如：王小明 → 王O明、歐陽娜娜 → 歐OO娜）
+      // 中間最多只顯示兩個 O，即使名字再長
+      const firstChar = name[0];
+      const lastChar = name[name.length - 1];
+      const middleLength = name.length - 2;
+      const maskedMiddle = middleLength === 1 ? 'O' : 'OO';
+      
+      return firstChar + maskedMiddle + lastChar;
+    }
+
+    // 查詢包裹
+    async function searchPackage() {
+      const trackingNo = trackingInput.value.trim();
+
+      // 驗證輸入
+      if (!trackingNo) {
+        showAlert('請輸入包裹編號', 'warning');
+        return;
+      }
+
+      // 顯示載入
+      showLoading(true);
+      hideAlert();
+      hideResult();
+
+      try {
+        // 查詢包裹
+        const { data: shipment, error } = await supabaseClient
+          .from('shipments')
+          .select('*')
+          .eq('tracking_no', trackingNo)
+          .single();
+
+        if (error || !shipment) {
+          showAlert('⚠️ 查無此包裹，請確認單號是否正確', 'error');
+          showLoading(false);
+          return;
+        }
+
+        // 查詢歷史記錄
+        const { data: logs } = await supabaseClient
+          .from('logs')
+          .select('*')
+          .eq('shipment_id', shipment.id)
+          .order('created_at', { ascending: false });
+
+        // 顯示結果
+        displayResult(shipment, logs || []);
+        showLoading(false);
+
+      } catch (error) {
+        console.error('查詢失敗：', error);
+        showAlert('系統忙碌中，請稍後再試', 'error');
+        showLoading(false);
+      }
+    }
+
+    // 顯示結果
+    function displayResult(shipment, logs) {
+      // 基本資訊
+      document.getElementById('trackingNo').textContent = shipment.tracking_no;
+      
+      // 收件人姓名遮蔽處理（例如：王小明 → 王O明、張三丰 → 張O丰、李四 → 李O）
+      const maskedName = maskReceiverName(shipment.receiver_name);
+      document.getElementById('receiverName').textContent = maskedName;
+      
+      // 取件地址（優先使用 receiver_address，沒有則使用店家地址）
+      const address = shipment.receiver_address || 
+                      CONFIG.UI.PRINT.COMPANY.ADDRESS || 
+                      '請洽詢客服';
+      document.getElementById('storeAddress').textContent = address;
+      
+      document.getElementById('statusText').textContent = shipment.status;
+      document.getElementById('updateTime').textContent = new Date(shipment.updated_at).toLocaleString('zh-TW');
+
+      // 狀態徽章
+      const statusBadge = document.getElementById('statusBadge');
+      statusBadge.textContent = getStatusIcon(shipment.status) + ' ' + shipment.status;
+      statusBadge.className = 'status-badge ' + shipment.status.replace(/\s+/g, '').replace(/，/g, '');
+
+      // 代收金額
+      if (shipment.cod_amount && shipment.cod_amount > 0) {
+        document.getElementById('codRow').style.display = 'flex';
+        document.getElementById('codAmount').textContent = 'NT$ ' + shipment.cod_amount;
+      } else {
+        document.getElementById('codRow').style.display = 'none';
+      }
+
+      // 顯示歷史記錄
+      if (logs && logs.length > 0) {
+        displayHistory(logs);
+        historySection.style.display = 'block';
+      } else {
+        historySection.style.display = 'none';
+      }
+
+      // 顯示提示訊息
+      if (shipment.status === '包裹已配達取件門市' || shipment.status.includes('待取件')) {
+        showAlert('💡 包裹已到達取件地點，請前往櫃檯或使用自助報到機完成取件', 'info');
+      } else if (shipment.status === '取件成功' || shipment.status.includes('已取件')) {
+        showAlert('✅ 此包裹已完成取件', 'success');
+      }
+
+      // 顯示結果卡片
+      resultCard.classList.add('show');
+    }
+
+    // 顯示歷史記錄
+    function displayHistory(logs) {
+      timeline.innerHTML = logs.map(log => `
+        <div class="timeline-item">
+          <div class="timeline-status">
+            ${getStatusIcon(log.new_status || log.action)} ${log.new_status || log.action}
+          </div>
+          <div class="timeline-time">
+            ${new Date(log.created_at).toLocaleString('zh-TW')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // 取得狀態圖標
+    function getStatusIcon(status) {
+      if (!status) return '📦';
+      
+      if (status.includes('已建立')) return '📝';
+      if (status.includes('離店') || status.includes('配送中')) return '🚚';
+      if (status.includes('理貨中心')) return '🏢';
+      if (status.includes('配達') || status.includes('待取件')) return '🟢';
+      if (status.includes('取件成功') || status.includes('已取件')) return '✅';
+      
+      return '📦';
+    }
+
+    // 顯示/隱藏載入
+    function showLoading(show) {
+      loading.classList.toggle('show', show);
+      searchBtn.disabled = show;
+    }
+
+    // 顯示提示
+    function showAlert(message, type) {
+      alert.textContent = message;
+      alert.className = `alert ${type} show`;
+    }
+
+    // 隱藏提示
+    function hideAlert() {
+      alert.classList.remove('show');
+    }
+
+    // 隱藏結果
+    function hideResult() {
+      resultCard.classList.remove('show');
+    }
+
+    // 重置搜尋
+    function resetSearch() {
+      trackingInput.value = '';
+      hideResult();
+      hideAlert();
+      trackingInput.focus();
+    }
+
+    // 分享結果
+    function shareResult() {
+      const trackingNo = document.getElementById('trackingNo').textContent;
+      const status = document.getElementById('statusText').textContent;
+      const storeAddress = document.getElementById('storeAddress').textContent;
+      const updateTime = document.getElementById('updateTime').textContent;
+      
+      // 取得代收金額（如果有）
+      const codRow = document.getElementById('codRow');
+      const codAmount = codRow.style.display !== 'none' ? 
+        document.getElementById('codAmount').textContent : '';
+      
+      // 建立完整的分享網址
+      let shareUrl = window.location.href.split('?')[0] + '?tracking=' + encodeURIComponent(trackingNo);
+      
+      // 如果是 file:// 協議，提供替代說明
+      const isFileProtocol = window.location.protocol === 'file:';
+      
+      // 建立分享文字
+      const text = `📦 包裹查詢結果\n\n` +
+                   `包裹編號：${trackingNo}\n` +
+                   `狀態：${status}\n` +
+                   `取件地址：${storeAddress}\n` +
+                   `更新時間：${updateTime}\n` +
+                   (codAmount ? `代收金額：${codAmount}\n` : '') +
+                   (isFileProtocol ? 
+                     `\n⚠️ 本地測試環境\n請部署至網頁伺服器後使用分享功能` : 
+                     `\n查詢連結：${shareUrl}`);
+
+      // 檢查是否支援 Web Share API（且非 file:// 協議）
+      if (navigator.share && !isFileProtocol && window.location.protocol === 'https:') {
+        navigator.share({
+          title: '包裹查詢結果',
+          text: text,
+          url: shareUrl
+        }).then(() => {
+          showAlert('✅ 分享成功', 'success');
+          setTimeout(hideAlert, 2000);
+        }).catch(err => {
+          if (err.name !== 'AbortError') {
+            console.log('分享取消或失敗：', err);
+            fallbackCopy(text);
+          }
+        });
+      } else {
+        // 備用方案：複製到剪貼簿
+        fallbackCopy(text);
+      }
+    }
+    
+    // 備用複製功能
+    function fallbackCopy(text) {
+      // 嘗試使用 Clipboard API
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          showAlert('✅ 查詢結果已複製到剪貼簿', 'success');
+          setTimeout(hideAlert, 3000);
+        }).catch(err => {
+          console.error('複製失敗：', err);
+          // 最後備用方案：顯示文字框讓使用者手動複製
+          showCopyDialog(text);
+        });
+      } else {
+        // 舊版瀏覽器：使用 execCommand
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        
+        try {
+          document.execCommand('copy');
+          showAlert('✅ 查詢結果已複製到剪貼簿', 'success');
+          setTimeout(hideAlert, 3000);
+        } catch (err) {
+          console.error('複製失敗：', err);
+          showCopyDialog(text);
+        }
+        
+        document.body.removeChild(textarea);
+      }
+    }
+    
+    // 顯示複製對話框（最後備用方案）
+    function showCopyDialog(text) {
+      const dialog = document.createElement('div');
+      dialog.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 24px;
+        border-radius: 16px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        z-index: 10000;
+        max-width: 90%;
+        width: 400px;
+      `;
+      
+      dialog.innerHTML = `
+        <div style="font-size: 18px; font-weight: bold; margin-bottom: 12px;">請手動複製</div>
+        <textarea readonly style="width: 100%; height: 200px; padding: 12px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 14px; font-family: inherit; resize: none;">${text}</textarea>
+        <button onclick="this.parentElement.remove()" style="margin-top: 12px; width: 100%; padding: 12px; background: #0a84ff; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">關閉</button>
+      `;
+      
+      document.body.appendChild(dialog);
+      dialog.querySelector('textarea').select();
+    }
+
+    // 啟動
+    init();
+  </script>
+</body>
+</html>
+

@@ -798,23 +798,23 @@
             
              <!-- 用戶選單下拉 -->
              <div id="userMenuDropdown" class="user-menu-dropdown">
-          <div class="user-menu-item" onclick="navigateTo('shpsearch.html')">
+          <div class="user-menu-item" onclick="navigateTo('pages/customer/shpsearch.html')">
             <span class="user-menu-icon">🔍</span>
             <span>包裹查詢</span>
           </div>
-          <div class="user-menu-item" onclick="navigateTo('pages/sales.html')">
+          <div class="user-menu-item" onclick="navigateTo('pages/admin/sales.html')">
             <span class="user-menu-icon">🛒</span>
             <span>取件結帳系統</span>
           </div>
-          <div class="user-menu-item" onclick="navigateTo('pages/checkin.html')">
+          <div class="user-menu-item" onclick="navigateTo('pages/customer/checkin.html')">
             <span class="user-menu-icon">🏷️</span>
             <span>自助報到 Kiosk</span>
           </div>
-          <div class="user-menu-item" onclick="navigateTo('pages/counter.html')">
+          <div class="user-menu-item" onclick="navigateTo('pages/admin/counter.html')">
             <span class="user-menu-icon">🔔</span>
             <span>櫃檯叫號管理</span>
           </div>
-          <div class="user-menu-item" onclick="navigateTo('pages/display.html')">
+          <div class="user-menu-item" onclick="navigateTo('pages/customer/display.html')">
             <span class="user-menu-icon">🖥️</span>
             <span>公播顯示畫面</span>
           </div>
@@ -2082,7 +2082,7 @@
     });
 
     posBtn.addEventListener('click', () => {
-      window.location.href = 'pages/sales.html';
+      window.location.href = 'pages/admin/sales.html';
     });
 
     // 用戶選單功能

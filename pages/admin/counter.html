@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>櫃檯叫號管理</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../../config.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #0a84ff;
+      --success: #28c76f;
+      --danger: #ff3b30;
+      --warning: #ff9500;
+      --muted: #6b7280;
+      --bg: #f5f7fa;
+      --card-bg: #ffffff;
+      --border: #e5e7eb;
+    }
+
+    body {
+      font-family: "Microsoft JhengHei", "Noto Sans TC", -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      min-height: 100vh;
+    }
+
+    .header {
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--border);
+      padding: 20px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .header-title {
+      font-size: 24px;
+      font-weight: bold;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .stat-card {
+      background: var(--bg);
+      padding: 8px 16px;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .stat-value {
+      font-size: 20px;
+      font-weight: bold;
+      color: var(--primary);
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .queue-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .queue-card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      transition: all 0.3s;
+      border: 2px solid transparent;
+    }
+
+    .queue-card:hover {
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      transform: translateY(-2px);
+    }
+
+    .queue-card.waiting {
+      border-color: var(--warning);
+      background: #fff8e6;
+    }
+
+    .queue-card.called {
+      border-color: var(--primary);
+      background: #e6f3ff;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .checkin-no {
+      font-size: 32px;
+      font-weight: bold;
+      color: var(--primary);
+      font-family: "Courier New", monospace;
+    }
+
+    .status-badge {
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .status-badge.waiting {
+      background: var(--warning);
+      color: white;
+    }
+
+    .status-badge.called {
+      background: var(--primary);
+      color: white;
+    }
+
+    .status-badge.completed {
+      background: var(--success);
+      color: white;
+    }
+
+    .card-body {
+      margin-bottom: 16px;
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .info-row:last-child {
+      border-bottom: none;
+    }
+
+    .info-label {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .info-value {
+      font-weight: 600;
+      color: #1f2937;
+      font-size: 14px;
+    }
+
+    .wait-time {
+      text-align: center;
+      padding: 8px;
+      background: var(--bg);
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+
+    .wait-time-label {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .wait-time-value {
+      font-size: 18px;
+      font-weight: bold;
+      color: var(--warning);
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+
+    .btn-call {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-complete {
+      background: var(--success);
+      color: white;
+    }
+
+    .btn-cancel {
+      background: var(--muted);
+      color: white;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+
+    .empty-icon {
+      font-size: 64px;
+      margin-bottom: 16px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+      background: var(--card-bg);
+      padding: 8px;
+      border-radius: 12px;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      background: transparent;
+      color: var(--muted);
+      transition: all 0.2s;
+    }
+
+    .tab.active {
+      background: var(--primary);
+      color: white;
+    }
+
+    .refresh-btn {
+      padding: 8px 16px;
+      border: 2px solid var(--primary);
+      border-radius: 8px;
+      background: white;
+      color: var(--primary);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .refresh-btn:hover {
+      background: var(--primary);
+      color: white;
+    }
+
+    .message {
+      padding: 16px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      font-weight: 500;
+      text-align: center;
+    }
+
+    .message.success {
+      background: #e8f7ee;
+      color: var(--success);
+    }
+
+    .message.error {
+      background: #ffecee;
+      color: var(--danger);
+    }
+  </style>
+</head>
+<body>
+  <!-- 頭部 -->
+  <div class="header">
+    <div class="header-left">
+      <h1 class="header-title">🔔 櫃檯叫號管理</h1>
+    </div>
+    <div class="header-right">
+      <div class="stat-card">
+        <div class="stat-label">待叫號</div>
+        <div class="stat-value" id="waitingCount">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">已叫號</div>
+        <div class="stat-value" id="calledCount" style="color: var(--primary);">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">已完成</div>
+        <div class="stat-value" id="completedCount" style="color: var(--success);">0</div>
+      </div>
+      <button class="refresh-btn" onclick="loadCheckins()">🔄 刷新</button>
+      <button class="refresh-btn" onclick="goToSales()">💰 結帳</button>
+      <button class="refresh-btn" onclick="goBack()">← 返回</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- 分頁 -->
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('waiting')">待叫號</button>
+      <button class="tab" onclick="switchTab('called')">已叫號</button>
+      <button class="tab" onclick="switchTab('completed')">今日完成</button>
+    </div>
+
+    <!-- 訊息 -->
+    <div id="messageContainer"></div>
+
+    <!-- 待叫號列表 -->
+    <div id="waitingTab" class="tab-content">
+      <div class="queue-grid" id="waitingQueue"></div>
+    </div>
+
+    <!-- 已叫號列表 -->
+    <div id="calledTab" class="tab-content" style="display: none;">
+      <div class="queue-grid" id="calledQueue"></div>
+    </div>
+
+    <!-- 今日完成列表 -->
+    <div id="completedTab" class="tab-content" style="display: none;">
+      <div class="queue-grid" id="completedQueue"></div>
+    </div>
+  </div>
+
+  <script>
+    // Supabase 初始化
+    const { createClient } = supabase;
+    const supabaseClient = createClient(CONFIG.SUPABASE.URL, CONFIG.SUPABASE.ANON_KEY);
+
+    // 全域變數
+    let currentUser = null;
+    let currentTab = 'waiting';
+    let refreshInterval = null;
+
+    // 初始化
+    async function init() {
+      await checkAuth();
+      await loadCheckins();
+      startAutoRefresh();
+      subscribeToChanges();
+    }
+
+    // 檢查登入
+    async function checkAuth() {
+      const { data: { user }, error } = await supabaseClient.auth.getUser();
+      
+      if (error || !user) {
+        alert('請先登入');
+        window.location.href = '../../index.html';
+        return;
+      }
+
+      // 直接使用 auth.users 的資料
+      currentUser = {
+        id: user.id,
+        email: user.email,
+        name: user.user_metadata?.name || user.email.split('@')[0]
+      };
+      
+      console.log('✅ 櫃檯系統已登入：', currentUser.email);
+    }
+
+    // 載入報到記錄
+    async function loadCheckins() {
+      try {
+        const { data, error } = await supabaseClient
+          .from('checkin_records')
+          .select('*')
+          .gte('checkin_time', new Date().toISOString().split('T')[0])
+          .order('checkin_time', { ascending: true });
+
+        if (error) throw error;
+
+        // 分類
+        const waiting = data.filter(c => c.status === '待叫號');
+        const called = data.filter(c => c.status === '已叫號');
+        const completed = data.filter(c => c.status === '已完成');
+
+        // 更新統計
+        document.getElementById('waitingCount').textContent = waiting.length;
+        document.getElementById('calledCount').textContent = called.length;
+        document.getElementById('completedCount').textContent = completed.length;
+
+        // 渲染列表
+        renderQueue('waitingQueue', waiting);
+        renderQueue('calledQueue', called);
+        renderQueue('completedQueue', completed);
+
+      } catch (error) {
+        console.error('載入失敗：', error);
+        showMessage('載入失敗：' + error.message, 'error');
+      }
+    }
+
+    // 渲染隊列
+    function renderQueue(containerId, checkins) {
+      const container = document.getElementById(containerId);
+      
+      if (checkins.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">📭</div>
+            <div>目前沒有報到記錄</div>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = checkins.map(checkin => {
+        // 計算等待時間
+        const now = new Date();
+        
+        // Supabase 儲存的時間沒有時區標記，需要加上 'Z' 強制解析為 UTC
+        // 這樣才能正確轉換成本地時間
+        const checkinTime = new Date(checkin.checkin_time + 'Z');
+        
+        // 計算時間差（毫秒）
+        const timeDiff = now.getTime() - checkinTime.getTime();
+        const waitMinutes = Math.max(0, Math.floor(timeDiff / (1000 * 60)));
+        
+        const statusClass = checkin.status === '待叫號' ? 'waiting' : 
+                           checkin.status === '已叫號' ? 'called' : 'completed';
+        
+        return `
+          <div class="queue-card ${statusClass}">
+            <div class="card-header">
+              <div class="checkin-no">${checkin.checkin_no}</div>
+              <div class="status-badge ${statusClass}">${checkin.status}</div>
+            </div>
+
+            ${checkin.status !== '已完成' ? `
+              <div class="wait-time">
+                <div class="wait-time-label">等待時間</div>
+                <div class="wait-time-value">${waitMinutes} 分鐘</div>
+              </div>
+            ` : ''}
+
+            <div class="card-body">
+              <div class="info-row">
+                <span class="info-label">取件單號</span>
+                <span class="info-value">${checkin.tracking_no}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">收件人</span>
+                <span class="info-value">${checkin.receiver_name.substring(0, 2)}**</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">電話末三碼</span>
+                <span class="info-value">${checkin.receiver_phone.slice(-3)}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">代收金額</span>
+                <span class="info-value" style="color: var(--danger); font-size: 18px;">$${checkin.cod_amount || 0}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">報到時間</span>
+                <span class="info-value">${new Date(checkin.checkin_time).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+            </div>
+
+            <div class="card-actions">
+              ${checkin.status === '待叫號' ? `
+                <button class="btn btn-call" onclick="callNumber('${checkin.id}', '${checkin.checkin_no}')">
+                  🔔 叫號
+                </button>
+              ` : ''}
+              ${checkin.status === '已叫號' ? `
+                <button class="btn btn-complete" onclick="goToCheckout('${checkin.tracking_no}')">
+                  💰 前往結帳
+                </button>
+              ` : ''}
+              ${checkin.status === '已完成' ? `
+                <button class="btn btn-cancel" disabled>
+                  ✅ 已完成
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // 叫號
+    async function callNumber(checkinId, checkinNo) {
+      if (!confirm(`確定要叫號 ${checkinNo} 嗎？`)) return;
+
+      try {
+        // 更新狀態
+        const { error: updateError } = await supabaseClient
+          .from('checkin_records')
+          .update({
+            status: '已叫號',
+            called_time: new Date().toISOString()
+          })
+          .eq('id', checkinId);
+
+        if (updateError) throw updateError;
+
+        // 記錄叫號歷史
+        await supabaseClient
+          .from('call_history')
+          .insert({
+            checkin_id: checkinId,
+            checkin_no: checkinNo,
+            caller_id: currentUser.id,
+            caller_name: currentUser.name
+          });
+
+        // 語音播放已移至 display.html
+        // 透過 Supabase Realtime 自動通知顯示畫面
+
+        showMessage(`已叫號 ${checkinNo}，請準備包裹（語音由顯示畫面播放）`, 'success');
+        await loadCheckins();
+
+      } catch (error) {
+        console.error('叫號失敗：', error);
+        showMessage('叫號失敗：' + error.message, 'error');
+      }
+    }
+
+    // 語音播放功能已移除
+    // 現在由 display.html 透過 Realtime 自動處理
+
+    // 前往結帳
+    function goToCheckout(trackingNo) {
+      window.open(`sales.html?tracking=${trackingNo}`, '_blank');
+    }
+
+    // 前往結帳系統
+    function goToSales() {
+      window.location.href = 'sales.html';
+    }
+
+    // 返回
+    function goBack() {
+      window.location.href = '../../index.html';
+    }
+
+    // 切換分頁
+    function switchTab(tab) {
+      currentTab = tab;
+      
+      // 更新按鈕狀態
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      event.target.classList.add('active');
+      
+      // 顯示對應內容
+      document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
+      document.getElementById(`${tab}Tab`).style.display = 'block';
+    }
+
+    // 顯示訊息
+    function showMessage(text, type) {
+      const container = document.getElementById('messageContainer');
+      const message = document.createElement('div');
+      message.className = `message ${type}`;
+      message.textContent = text;
+      container.innerHTML = '';
+      container.appendChild(message);
+      
+      setTimeout(() => message.remove(), 3000);
+    }
+
+    // 自動刷新
+    function startAutoRefresh() {
+      refreshInterval = setInterval(loadCheckins, 10000); // 每 10 秒刷新
+    }
+
+    // 訂閱即時更新
+    function subscribeToChanges() {
+      supabaseClient
+        .channel('checkin_changes')
+        .on('postgres_changes', 
+          { event: '*', schema: 'public', table: 'checkin_records' },
+          payload => {
+            console.log('即時更新：', payload);
+            loadCheckins();
+          }
+        )
+        .subscribe();
+    }
+
+    // 頁面卸載時清理
+    window.addEventListener('beforeunload', () => {
+      if (refreshInterval) clearInterval(refreshInterval);
+    });
+
+    init();
+  </script>
+</body>
+</html>
+

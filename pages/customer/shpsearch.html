@@ -7,6 +7,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script src="../../config.js"></script>
+  <script src="../../config-loader.js"></script>
   <style>
     * {
       margin: 0;
@@ -922,6 +923,9 @@
     // 初始化 LIFF（如果在 LINE 內開啟）
     async function initLiff() {
       try {
+        // ✅ 第一步：載入 LINE 設定
+        await initLineConfig();
+        
         // 檢查是否已設定 LIFF ID 且在 LINE 環境內
         if (!CONFIG.LINE.LIFF_ID || typeof liff === 'undefined') {
           console.log('ℹ️ 非 LINE 環境或未設定 LIFF');

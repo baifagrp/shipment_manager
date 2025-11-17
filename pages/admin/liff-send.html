@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LINE 訊息發送 - BaiFa.GRP</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      opacity: 0.9;
+      font-size: 14px;
+    }
+
+    .content {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      padding: 30px;
+    }
+
+    .section {
+      background: #f8f9fa;
+      border-radius: 12px;
+      padding: 25px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      color: #2d3748;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 14px;
+      font-weight: 500;
+      color: #4a5568;
+      margin-bottom: 8px;
+    }
+
+    .form-input,
+    .form-select,
+    .form-textarea {
+      width: 100%;
+      padding: 12px 15px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.3s;
+      font-family: inherit;
+    }
+
+    .form-input:focus,
+    .form-select:focus,
+    .form-textarea:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .form-textarea {
+      resize: vertical;
+      min-height: 200px;
+      font-family: 'Courier New', monospace;
+    }
+
+    .customer-card {
+      background: white;
+      border-radius: 8px;
+      padding: 15px;
+      border: 2px solid #e2e8f0;
+      margin-top: 10px;
+    }
+
+    .customer-card.active {
+      border-color: #667eea;
+      background: #f7faff;
+    }
+
+    .customer-info {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .customer-avatar {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .customer-details {
+      flex: 1;
+    }
+
+    .customer-name {
+      font-weight: 600;
+      font-size: 16px;
+      color: #2d3748;
+      margin-bottom: 5px;
+    }
+
+    .customer-meta {
+      font-size: 13px;
+      color: #718096;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      justify-content: center;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-secondary {
+      background: #e2e8f0;
+      color: #4a5568;
+    }
+
+    .btn-secondary:hover {
+      background: #cbd5e0;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .message-type-selector {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .type-option {
+      flex: 1;
+      padding: 15px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .type-option:hover {
+      border-color: #cbd5e0;
+    }
+
+    .type-option.active {
+      border-color: #667eea;
+      background: #f7faff;
+    }
+
+    .type-icon {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+
+    .type-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #2d3748;
+    }
+
+    .preview-area {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      min-height: 300px;
+      border: 2px solid #e2e8f0;
+    }
+
+    .preview-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #4a5568;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .message-bubble {
+      background: #06c755;
+      color: white;
+      padding: 12px 16px;
+      border-radius: 18px;
+      display: inline-block;
+      max-width: 80%;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+      margin-top: 10px;
+    }
+
+    .flex-preview {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-top: 10px;
+    }
+
+    .alert {
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .alert-success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .alert-error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    .alert-warning {
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeeba;
+    }
+
+    .template-selector {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+
+    .template-btn {
+      padding: 8px 12px;
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .template-btn:hover {
+      border-color: #667eea;
+      background: #f7faff;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .loading.active {
+      display: block;
+    }
+
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #667eea;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 10px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .search-results {
+      margin-top: 10px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .search-result-item {
+      padding: 12px;
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .search-result-item:hover {
+      border-color: #667eea;
+      background: #f7faff;
+    }
+
+    @media (max-width: 1024px) {
+      .content {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📩 LINE 訊息發送</h1>
+      <p>向已綁定的顧客發送通知、優惠券或取件提醒</p>
+    </div>
+
+    <div class="content">
+      <!-- 左側：編輯區 -->
+      <div>
+        <!-- 搜尋顧客 -->
+        <div class="section">
+          <div class="section-title">
+            🔍 搜尋顧客
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">輸入顧客姓名或手機號</label>
+            <input 
+              type="text" 
+              class="form-input" 
+              id="searchInput" 
+              placeholder="例如：王小明 或 0912345678"
+              oninput="searchCustomer()"
+            >
+          </div>
+
+          <div class="search-results" id="searchResults"></div>
+
+          <div id="selectedCustomer" style="display: none;">
+            <div class="customer-card active">
+              <div class="customer-info">
+                <div class="customer-avatar" id="customerAvatar">?</div>
+                <div class="customer-details">
+                  <div class="customer-name" id="customerName">未選擇</div>
+                  <div class="customer-meta">
+                    📱 <span id="customerPhone">-</span><br>
+                    🆔 <span id="customerLineId">-</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 訊息類型 -->
+        <div class="section">
+          <div class="section-title">
+            📄 訊息類型
+          </div>
+
+          <div class="message-type-selector">
+            <div class="type-option active" onclick="selectMessageType('text')">
+              <div class="type-icon">💬</div>
+              <div class="type-label">文字訊息</div>
+            </div>
+            <div class="type-option" onclick="selectMessageType('flex')">
+              <div class="type-icon">📱</div>
+              <div class="type-label">Flex Message</div>
+            </div>
+          </div>
+
+          <!-- 文字訊息編輯區 -->
+          <div id="textEditor" class="form-group">
+            <label class="form-label">訊息內容</label>
+            <textarea 
+              class="form-textarea" 
+              id="textContent" 
+              placeholder="輸入要發送的文字訊息..."
+              oninput="updatePreview()"
+              style="min-height: 150px;"
+            ></textarea>
+          </div>
+
+          <!-- Flex Message 編輯區 -->
+          <div id="flexEditor" class="form-group" style="display: none;">
+            <label class="form-label">Flex JSON</label>
+            <div class="template-selector">
+              <button class="template-btn" onclick="loadTemplate('arrival')">📦 到店通知</button>
+              <button class="template-btn" onclick="loadTemplate('coupon')">🎫 優惠券</button>
+              <button class="template-btn" onclick="loadTemplate('reminder')">⏰ 取件提醒</button>
+            </div>
+            <textarea 
+              class="form-textarea" 
+              id="flexContent" 
+              placeholder='{"type": "bubble", ...}'
+              oninput="updatePreview()"
+            ></textarea>
+          </div>
+
+          <!-- 發送按鈕 -->
+          <div class="btn-group">
+            <button class="btn btn-primary" onclick="sendMessage()" id="sendBtn" disabled>
+              🚀 立即發送
+            </button>
+            <button class="btn btn-secondary" onclick="clearContent()">
+              🔄 清除內容
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右側：預覽區 -->
+      <div>
+        <div class="section">
+          <div class="section-title">
+            👀 訊息預覽
+          </div>
+
+          <div class="preview-area">
+            <div class="preview-title">
+              💬 LINE 顯示效果
+            </div>
+            <div id="previewContent">
+              <p style="color: #a0aec0; text-align: center; padding: 40px 0;">
+                請輸入訊息內容以查看預覽
+              </p>
+            </div>
+          </div>
+
+          <!-- 發送狀態 -->
+          <div id="statusAlert" style="margin-top: 20px;"></div>
+
+          <!-- 載入中 -->
+          <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>發送中...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../../config.js"></script>
+  <script>
+    // 初始化 Supabase
+    const supabaseClient = supabase.createClient(
+      CONFIG.SUPABASE.URL,
+      CONFIG.SUPABASE.ANON_KEY
+    );
+
+    let currentUser = null;
+    let selectedCustomer = null;
+    let currentMessageType = 'text';
+
+    // 檢查登入與權限
+    async function checkAuth() {
+      const { data: { user }, error } = await supabaseClient.auth.getUser();
+      
+      if (error || !user) {
+        alert('請先登入');
+        window.location.href = '../../index.html';
+        return false;
+      }
+
+      currentUser = user;
+      console.log('✅ 已登入:', user.email);
+      return true;
+    }
+
+    // 搜尋顧客
+    let searchTimeout;
+    async function searchCustomer() {
+      clearTimeout(searchTimeout);
+      
+      const keyword = document.getElementById('searchInput').value.trim();
+      const resultsDiv = document.getElementById('searchResults');
+      
+      if (keyword.length < 2) {
+        resultsDiv.innerHTML = '';
+        return;
+      }
+
+      searchTimeout = setTimeout(async () => {
+        try {
+          console.log('🔍 搜尋顧客:', keyword);
+          
+          const { data, error } = await supabaseClient
+            .from('line_bindings')
+            .select('*')
+            .or(`phone.ilike.%${keyword}%`)
+            .limit(10);
+
+          if (error) throw error;
+
+          console.log('查詢結果:', data);
+
+          if (data && data.length > 0) {
+            resultsDiv.innerHTML = data.map(customer => `
+              <div class="search-result-item" onclick='selectCustomer(${JSON.stringify(customer)})'>
+                <strong>${customer.phone}</strong><br>
+                <small style="color: #718096;">LINE ID: ${customer.line_user_id}</small>
+              </div>
+            `).join('');
+          } else {
+            resultsDiv.innerHTML = '<p style="color: #a0aec0; padding: 10px;">查無結果</p>';
+          }
+        } catch (error) {
+          console.error('❌ 搜尋失敗:', error);
+          resultsDiv.innerHTML = '<p style="color: #e53e3e; padding: 10px;">搜尋失敗</p>';
+        }
+      }, 300);
+    }
+
+    // 選擇顧客
+    function selectCustomer(customer) {
+      selectedCustomer = customer;
+      
+      document.getElementById('selectedCustomer').style.display = 'block';
+      document.getElementById('searchResults').innerHTML = '';
+      document.getElementById('searchInput').value = customer.phone;
+      
+      // 更新顯示
+      const firstChar = customer.phone ? customer.phone[0] : '?';
+      document.getElementById('customerAvatar').textContent = firstChar;
+      document.getElementById('customerName').textContent = customer.phone;
+      document.getElementById('customerPhone').textContent = customer.phone;
+      document.getElementById('customerLineId').textContent = customer.line_user_id;
+      
+      // 啟用發送按鈕
+      updateSendButton();
+      
+      console.log('✅ 已選擇顧客:', customer);
+    }
+
+    // 切換訊息類型
+    function selectMessageType(type) {
+      currentMessageType = type;
+      
+      // 更新 UI
+      document.querySelectorAll('.type-option').forEach(el => el.classList.remove('active'));
+      event.target.closest('.type-option').classList.add('active');
+      
+      // 切換編輯區
+      document.getElementById('textEditor').style.display = type === 'text' ? 'block' : 'none';
+      document.getElementById('flexEditor').style.display = type === 'flex' ? 'block' : 'none';
+      
+      updatePreview();
+    }
+
+    // 更新預覽
+    function updatePreview() {
+      const previewDiv = document.getElementById('previewContent');
+      
+      if (currentMessageType === 'text') {
+        const text = document.getElementById('textContent').value;
+        if (text.trim()) {
+          previewDiv.innerHTML = `<div class="message-bubble">${escapeHtml(text)}</div>`;
+        } else {
+          previewDiv.innerHTML = '<p style="color: #a0aec0; text-align: center; padding: 40px 0;">請輸入文字訊息</p>';
+        }
+      } else {
+        const flexJson = document.getElementById('flexContent').value;
+        if (flexJson.trim()) {
+          try {
+            const flexData = JSON.parse(flexJson);
+            // 渲染 Flex Message 視覺預覽
+            const flexHtml = renderFlexMessage(flexData.contents || flexData);
+            previewDiv.innerHTML = `
+              <div class="flex-preview">
+                <div style="background: #e9ecef; padding: 20px;">
+                  <p style="color: #4a5568; font-size: 12px; margin-bottom: 10px;">✅ Flex Message 預覽</p>
+                  ${flexHtml}
+                </div>
+              </div>
+            `;
+          } catch (e) {
+            previewDiv.innerHTML = `<p style="color: #e53e3e; padding: 20px;">❌ JSON 格式錯誤：${e.message}</p>`;
+          }
+        } else {
+          previewDiv.innerHTML = '<p style="color: #a0aec0; text-align: center; padding: 40px 0;">請輸入 Flex JSON</p>';
+        }
+      }
+      
+      updateSendButton();
+    }
+
+    // HTML 跳脫
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // 渲染 Flex Message 視覺效果
+    function renderFlexMessage(flex) {
+      if (flex.type === 'bubble') {
+        return renderBubble(flex);
+      } else if (flex.type === 'carousel') {
+        return `<div style="display: flex; gap: 10px; overflow-x: auto;">${flex.contents.map(renderBubble).join('')}</div>`;
+      }
+      return '<p style="color: #718096;">不支援的 Flex 類型</p>';
+    }
+
+    // 渲染 Bubble
+    function renderBubble(bubble) {
+      let html = '<div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 300px; margin: 0 auto;">';
+      
+      // Hero
+      if (bubble.hero) {
+        const heroBg = bubble.hero.backgroundColor || '#06c755';
+        const heroPadding = bubble.hero.paddingAll || '20px';
+        html += `<div style="background: ${heroBg}; padding: ${heroPadding};">`;
+        html += renderBox(bubble.hero);
+        html += '</div>';
+      }
+      
+      // Body
+      if (bubble.body) {
+        const bodyPadding = bubble.body.paddingAll || '20px';
+        html += `<div style="padding: ${bodyPadding};">`;
+        html += renderBox(bubble.body);
+        html += '</div>';
+      }
+      
+      // Footer
+      if (bubble.footer) {
+        const footerPadding = bubble.footer.paddingAll || '20px';
+        html += `<div style="padding: ${footerPadding}; border-top: 1px solid #e9ecef;">`;
+        html += renderBox(bubble.footer);
+        html += '</div>';
+      }
+      
+      html += '</div>';
+      return html;
+    }
+
+    // 渲染 Box
+    function renderBox(box) {
+      if (!box.contents) return '';
+      
+      const layout = box.layout || 'vertical';
+      const spacing = box.spacing || 'none';
+      const margin = box.margin || 'none';
+      const bg = box.backgroundColor || 'transparent';
+      const padding = box.paddingAll || '0';
+      const cornerRadius = box.cornerRadius ? `${box.cornerRadius}px` : '0';
+      
+      const spacingMap = { none: '0', xs: '4px', sm: '8px', md: '12px', lg: '16px', xl: '20px', xxl: '24px' };
+      const marginMap = { none: '0', xs: '4px', sm: '8px', md: '12px', lg: '16px', xl: '20px', xxl: '24px' };
+      
+      const flexDirection = layout === 'vertical' ? 'column' : 'row';
+      const gap = spacingMap[spacing] || spacing;
+      const marginValue = marginMap[margin] || margin;
+      
+      let html = `<div style="display: flex; flex-direction: ${flexDirection}; gap: ${gap}; margin-top: ${marginValue}; background: ${bg}; padding: ${padding}; border-radius: ${cornerRadius};">`;
+      
+      box.contents.forEach(item => {
+        if (item.type === 'text') {
+          html += renderText(item);
+        } else if (item.type === 'box') {
+          html += renderBox(item);
+        } else if (item.type === 'button') {
+          html += renderButton(item);
+        } else if (item.type === 'separator') {
+          html += '<hr style="border: none; border-top: 1px solid #e9ecef; margin: 8px 0;">';
+        } else if (item.type === 'spacer') {
+          const size = item.size || 'md';
+          const sizeMap = { xs: '4px', sm: '8px', md: '12px', lg: '16px', xl: '20px' };
+          html += `<div style="height: ${sizeMap[size] || size};"></div>`;
+        }
+      });
+      
+      html += '</div>';
+      return html;
+    }
+
+    // 渲染文字
+    function renderText(text) {
+      const sizeMap = { xxs: '10px', xs: '12px', sm: '14px', md: '16px', lg: '18px', xl: '20px', xxl: '24px', '3xl': '28px', '4xl': '32px', '5xl': '36px' };
+      const weightMap = { regular: 'normal', bold: 'bold' };
+      const alignMap = { start: 'left', center: 'center', end: 'right' };
+      
+      const fontSize = sizeMap[text.size] || text.size || '14px';
+      const fontWeight = weightMap[text.weight] || text.weight || 'normal';
+      const color = text.color || '#000000';
+      const textAlign = alignMap[text.align] || text.align || 'left';
+      const margin = text.margin || 'none';
+      const marginMap = { none: '0', xs: '4px', sm: '8px', md: '12px', lg: '16px', xl: '20px' };
+      const marginValue = marginMap[margin] || margin;
+      const flex = text.flex || 'auto';
+      const wrap = text.wrap ? 'normal' : 'nowrap';
+      
+      return `<div style="font-size: ${fontSize}; font-weight: ${fontWeight}; color: ${color}; text-align: ${textAlign}; margin-top: ${marginValue}; flex: ${flex}; white-space: ${wrap === 'normal' ? 'pre-wrap' : 'nowrap'}; overflow: ${wrap === 'nowrap' ? 'hidden' : 'visible'}; text-overflow: ${wrap === 'nowrap' ? 'ellipsis' : 'clip'};">${escapeHtml(text.text)}</div>`;
+    }
+
+    // 渲染按鈕
+    function renderButton(button) {
+      const style = button.style || 'primary';
+      const height = button.height || 'md';
+      
+      const styleMap = {
+        primary: 'background: #06c755; color: white;',
+        secondary: 'background: #e9ecef; color: #2d3748;',
+        link: 'background: transparent; color: #0a84ff; text-decoration: underline;'
+      };
+      
+      const heightMap = { sm: '32px', md: '40px' };
+      
+      const buttonStyle = styleMap[style] || styleMap.primary;
+      const buttonHeight = heightMap[height] || height;
+      
+      return `<button style="${buttonStyle} height: ${buttonHeight}; border: none; border-radius: 4px; padding: 0 16px; cursor: pointer; font-size: 14px; font-weight: bold; width: 100%;">${escapeHtml(button.action?.label || 'Button')}</button>`;
+    }
+
+    // 更新發送按鈕狀態
+    function updateSendButton() {
+      const sendBtn = document.getElementById('sendBtn');
+      const hasCustomer = selectedCustomer !== null;
+      const hasContent = currentMessageType === 'text' 
+        ? document.getElementById('textContent').value.trim().length > 0
+        : document.getElementById('flexContent').value.trim().length > 0;
+      
+      sendBtn.disabled = !(hasCustomer && hasContent);
+    }
+
+    // 載入範本
+    function loadTemplate(type) {
+      const templates = {
+        arrival: {
+          type: 'flex',
+          altText: '📦 您的包裹已到店',
+          contents: {
+            type: 'bubble',
+            hero: {
+              type: 'box',
+              layout: 'vertical',
+              contents: [
+                { type: 'text', text: '📦 包裹到店通知', weight: 'bold', size: 'xl', color: '#ffffff' }
+              ],
+              backgroundColor: '#0a84ff',
+              paddingAll: '20px'
+            },
+            body: {
+              type: 'box',
+              layout: 'vertical',
+              contents: [
+                { type: 'text', text: '您的包裹已送達門市', size: 'md', color: '#2d3748' },
+                { type: 'text', text: '請盡快取件', size: 'sm', color: '#718096', margin: 'md' }
+              ]
+            }
+          }
+        },
+        coupon: {
+          type: 'flex',
+          altText: '🎫 專屬優惠券',
+          contents: {
+            type: 'bubble',
+            hero: {
+              type: 'box',
+              layout: 'vertical',
+              contents: [
+                { type: 'text', text: '🎫 專屬優惠券', weight: 'bold', size: 'xl', color: '#ffffff' }
+              ],
+              backgroundColor: '#ff6b6b',
+              paddingAll: '20px'
+            },
+            body: {
+              type: 'box',
+              layout: 'vertical',
+              contents: [
+                { type: 'text', text: '限時優惠', size: 'lg', weight: 'bold' },
+                { type: 'text', text: '立即使用享 9 折優惠', size: 'sm', color: '#718096', margin: 'md' }
+              ]
+            }
+          }
+        },
+        reminder: {
+          type: 'flex',
+          altText: '⏰ 取件提醒',
+          contents: {
+            type: 'bubble',
+            hero: {
+              type: 'box',
+              layout: 'vertical',
+              contents: [
+                { type: 'text', text: '⏰ 取件提醒', weight: 'bold', size: 'xl', color: '#ffffff' }
+              ],
+              backgroundColor: '#ffa500',
+              paddingAll: '20px'
+            },
+            body: {
+              type: 'box',
+              layout: 'vertical',
+              contents: [
+                { type: 'text', text: '您的包裹還未取件', size: 'md' },
+                { type: 'text', text: '請於 3 日內完成取件', size: 'sm', color: '#718096', margin: 'md' }
+              ]
+            }
+          }
+        }
+      };
+
+      const template = templates[type];
+      if (template) {
+        document.getElementById('flexContent').value = JSON.stringify(template, null, 2);
+        if (currentMessageType !== 'flex') {
+          selectMessageType('flex');
+          document.querySelectorAll('.type-option')[1].click();
+        }
+        updatePreview();
+      }
+    }
+
+    // 發送訊息
+    async function sendMessage() {
+      if (!selectedCustomer) {
+        alert('請先選擇顧客');
+        return;
+      }
+
+      const loading = document.getElementById('loading');
+      const statusAlert = document.getElementById('statusAlert');
+      
+      try {
+        loading.classList.add('active');
+        statusAlert.innerHTML = '';
+
+        let message;
+        if (currentMessageType === 'text') {
+          message = {
+            type: 'text',
+            text: document.getElementById('textContent').value
+          };
+        } else {
+          message = JSON.parse(document.getElementById('flexContent').value);
+        }
+
+        console.log('📤 準備發送訊息:', message);
+
+        // 呼叫 Supabase RPC
+        const { data, error } = await supabaseClient.rpc('send_line_notification', {
+          p_line_user_id: selectedCustomer.line_user_id,
+          p_message: message
+        });
+
+        if (error) throw error;
+
+        console.log('✅ 發送成功:', data);
+
+        // 記錄到 line_notifications
+        await supabaseClient.from('line_notifications').insert({
+          line_user_id: selectedCustomer.line_user_id,
+          phone: selectedCustomer.phone,
+          notification_type: 'manual',
+          message_content: currentMessageType === 'text' ? message.text : 'Flex Message',
+          flex_message: currentMessageType === 'flex' ? message : null,
+          status: 'sent'
+        });
+
+        statusAlert.innerHTML = `
+          <div class="alert alert-success">
+            ✅ 訊息發送成功！
+          </div>
+        `;
+
+        // 清除內容
+        setTimeout(() => {
+          clearContent();
+        }, 2000);
+
+      } catch (error) {
+        console.error('❌ 發送失敗:', error);
+        statusAlert.innerHTML = `
+          <div class="alert alert-error">
+            ❌ 發送失敗：${error.message}
+          </div>
+        `;
+      } finally {
+        loading.classList.remove('active');
+      }
+    }
+
+    // 清除內容
+    function clearContent() {
+      document.getElementById('textContent').value = '';
+      document.getElementById('flexContent').value = '';
+      updatePreview();
+    }
+
+    // 初始化
+    async function init() {
+      const authOk = await checkAuth();
+      if (!authOk) return;
+
+      console.log('✅ LINE 訊息發送頁面已載入');
+    }
+
+    // 頁面載入時初始化
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
+

@@ -609,6 +609,10 @@
         if (error) throw error;
 
         console.log('✅ 綁定成功');
+        
+        // 發送綁定成功通知
+        await sendBindingSuccessNotification(lineProfile.userId);
+        
         showSuccessScreen(phone);
 
       } catch (error) {
@@ -616,6 +620,75 @@
         alert('❌ 綁定失敗：' + error.message);
         bindBtn.disabled = false;
         bindBtn.textContent = '確認綁定';
+      }
+    }
+
+    // 發送綁定成功通知
+    async function sendBindingSuccessNotification(lineUserId) {
+      try {
+        console.log('📤 發送綁定成功通知給:', lineUserId);
+        
+        const flexMessage = {
+          type: "flex",
+          altText: "推播綁定成功通知",
+          contents: {
+            type: "bubble",
+            hero: {
+              type: "box",
+              layout: "vertical",
+              contents: [
+                {
+                  type: "text",
+                  text: "📢 推播綁定成功通知",
+                  weight: "bold",
+                  size: "xl",
+                  color: "#ffffff"
+                }
+              ],
+              backgroundColor: "#000000",
+              paddingAll: "20px"
+            },
+            body: {
+              type: "box",
+              layout: "vertical",
+              contents: [
+                {
+                  type: "text",
+                  text: "若有包裹到貨，您將收到通知!",
+                  size: "md",
+                  color: "#2d3748"
+                },
+                {
+                  type: "text",
+                  text: "感謝您的使用",
+                  size: "sm",
+                  color: "#718096",
+                  margin: "md"
+                }
+              ]
+            }
+          }
+        };
+
+        // 呼叫 Supabase RPC 發送通知
+        const { data, error } = await supabaseClient.rpc('send_line_notification', {
+          p_line_user_id: lineUserId,
+          p_message: flexMessage
+        });
+
+        if (error) {
+          console.error('❌ 發送通知失敗：', error);
+          // 不阻擋綁定流程，只記錄錯誤
+          return false;
+        }
+
+        console.log('✅ 綁定成功通知已發送');
+        return true;
+
+      } catch (error) {
+        console.error('❌ 發送通知時發生錯誤：', error);
+        // 不阻擋綁定流程
+        return false;
       }
     }
 

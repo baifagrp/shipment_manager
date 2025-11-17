@@ -1533,7 +1533,7 @@
             updated_at: new Date().toISOString()
           })
           .eq('id', shipmentId)
-          .select();
+          .select('*, verification_code, require_code');
 
         if (error) throw error;
 
@@ -1541,6 +1541,16 @@
         if (CONFIG.FEATURES.LINE_OA && CONFIG.LINE.MESSAGING.NOTIFY_ON_ARRIVAL && 
             nextStatus === '包裹已配達取件門市' && data && data[0]) {
           const updatedShipment = data[0];
+          
+          // Debug: 檢查貨件資料
+          console.log('📦 準備發送 LINE 通知，貨件資料：', {
+            tracking_no: updatedShipment.tracking_no,
+            receiver_phone: updatedShipment.receiver_phone,
+            require_code: updatedShipment.require_code,
+            verification_code: updatedShipment.verification_code ? '***有驗證碼***' : '無',
+            cod_amount: updatedShipment.cod_amount
+          });
+          
           if (!updatedShipment.line_notified) {
             window.LINENotify.notifyArrival(
               updatedShipment.receiver_phone,

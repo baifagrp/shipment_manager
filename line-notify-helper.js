@@ -46,6 +46,13 @@ async function sendLINENotification(lineUserId, message) {
  */
 async function notifyPackageArrival(phone, shipment) {
   try {
+    console.log('🔔 notifyPackageArrival 被呼叫', {
+      phone,
+      tracking_no: shipment.tracking_no,
+      require_code: shipment.require_code,
+      has_verification_code: !!shipment.verification_code
+    });
+    
     // ✅ 統一使用 Flex Message 格式（有無驗證碼都一樣精美）
     
     // 查詢 LINE 綁定資訊
@@ -176,6 +183,14 @@ function createArrivalFlexMessage(shipment) {
   const flexColor = CONFIG.LINE.MESSAGING.FLEX_MESSAGE_COLOR || '#0a84ff';
   const hasVerificationCode = shipment.require_code && shipment.verification_code;
   const hasCOD = shipment.cod_amount && shipment.cod_amount > 0;
+  
+  console.log('📝 建立 Flex Message', {
+    tracking_no: shipment.tracking_no,
+    hasVerificationCode,
+    hasCOD,
+    require_code: shipment.require_code,
+    verification_code_length: shipment.verification_code ? shipment.verification_code.length : 0
+  });
 
   return {
     type: 'flex',

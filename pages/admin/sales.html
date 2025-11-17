@@ -975,6 +975,9 @@
         // 列印收據
         await printReceipt(transaction);
 
+        // 發送 LINE 收據給顧客
+        await sendLineReceipt(transaction);
+
         // 顯示成功訊息
         showMessage('✅ 取件結帳成功！已上傳至 Supabase 並列印收據。', 'success');
 
@@ -1142,6 +1145,260 @@
     }
 
     // 記錄操作日誌
+    // 發送 LINE 收據給顧客
+    async function sendLineReceipt(transaction) {
+      try {
+        console.log('📤 準備發送 LINE 收據給:', transaction.receiver_phone);
+
+        // 查詢 LINE 綁定資訊
+        const { data: binding, error: bindingError } = await supabaseClient
+          .from('line_bindings')
+          .select('line_user_id, is_blocked')
+          .eq('phone', transaction.receiver_phone)
+          .single();
+
+        if (bindingError || !binding) {
+          console.log('ℹ️ 顧客尚未綁定 LINE，跳過發送收據');
+          return false;
+        }
+
+        if (binding.is_blocked) {
+          console.log('⚠️ 顧客已封鎖官方帳號，跳過發送');
+          return false;
+        }
+
+        // 計算找零
+        const cash = transaction.amount > 0 ? Math.ceil(transaction.amount / 100) * 100 : 0;
+        const change = cash - transaction.amount;
+
+        // 建立收據 Flex Message
+        const receiptMessage = {
+          type: "flex",
+          altText: `📮 取件收據 - ${transaction.transaction_no}`,
+          contents: {
+            type: "bubble",
+            body: {
+              type: "box",
+              layout: "vertical",
+              contents: [
+                {
+                  type: "text",
+                  text: "RECEIPT",
+                  weight: "bold",
+                  color: "#1DB446",
+                  size: "sm"
+                },
+                {
+                  type: "text",
+                  text: CONFIG.UI.PRINT.COMPANY.NAME,
+                  weight: "bold",
+                  size: "xxl",
+                  margin: "md"
+                },
+                {
+                  type: "text",
+                  text: CONFIG.UI.PRINT.COMPANY.ADDRESS,
+                  size: "xs",
+                  color: "#aaaaaa",
+                  wrap: true
+                },
+                {
+                  type: "separator",
+                  margin: "xxl"
+                },
+                {
+                  type: "box",
+                  layout: "vertical",
+                  margin: "xxl",
+                  spacing: "sm",
+                  contents: [
+                    {
+                      type: "box",
+                      layout: "horizontal",
+                      contents: [
+                        {
+                          type: "text",
+                          text: "取貨服務",
+                          size: "sm",
+                          color: "#555555",
+                          flex: 0
+                        }
+                      ]
+                    },
+                    {
+                      type: "box",
+                      layout: "horizontal",
+                      contents: [
+                        {
+                          type: "text",
+                          text: transaction.tracking_no,
+                          size: "sm",
+                          color: "#555555",
+                          flex: 0
+                        },
+                        {
+                          type: "text",
+                          text: `$${transaction.amount}`,
+                          size: "sm",
+                          color: "#111111",
+                          align: "end"
+                        }
+                      ]
+                    },
+                    {
+                      type: "separator",
+                      margin: "xxl"
+                    },
+                    {
+                      type: "box",
+                      layout: "horizontal",
+                      margin: "xxl",
+                      contents: [
+                        {
+                          type: "text",
+                          text: "ITEMS",
+                          size: "sm",
+                          color: "#555555"
+                        },
+                        {
+                          type: "text",
+                          text: "1",
+                          size: "sm",
+                          color: "#111111",
+                          align: "end"
+                        }
+                      ]
+                    },
+                    {
+                      type: "box",
+                      layout: "horizontal",
+                      contents: [
+                        {
+                          type: "text",
+                          text: "TOTAL",
+                          size: "sm",
+                          color: "#555555"
+                        },
+                        {
+                          type: "text",
+                          text: `$${transaction.amount}`,
+                          size: "sm",
+                          color: "#111111",
+                          align: "end"
+                        }
+                      ]
+                    },
+                    ...(transaction.amount > 0 ? [
+                      {
+                        type: "box",
+                        layout: "horizontal",
+                        contents: [
+                          {
+                            type: "text",
+                            text: "CASH",
+                            size: "sm",
+                            color: "#555555"
+                          },
+                          {
+                            type: "text",
+                            text: `$${cash}`,
+                            size: "sm",
+                            color: "#111111",
+                            align: "end"
+                          }
+                        ]
+                      },
+                      {
+                        type: "box",
+                        layout: "horizontal",
+                        contents: [
+                          {
+                            type: "text",
+                            text: "CHANGE",
+                            size: "sm",
+                            color: "#555555"
+                          },
+                          {
+                            type: "text",
+                            text: `$${change}`,
+                            size: "sm",
+                            color: "#111111",
+                            align: "end"
+                          }
+                        ]
+                      }
+                    ] : [])
+                  ]
+                },
+                {
+                  type: "separator",
+                  margin: "xxl"
+                },
+                {
+                  type: "box",
+                  layout: "horizontal",
+                  margin: "md",
+                  contents: [
+                    {
+                      type: "text",
+                      text: "PAYMENT ID",
+                      size: "xs",
+                      color: "#aaaaaa",
+                      flex: 0
+                    },
+                    {
+                      type: "text",
+                      text: `#${transaction.transaction_no}`,
+                      color: "#aaaaaa",
+                      size: "xs",
+                      align: "end"
+                    }
+                  ]
+                }
+              ]
+            },
+            styles: {
+              footer: {
+                separator: true
+              }
+            }
+          }
+        };
+
+        // 呼叫 Supabase RPC 發送收據
+        const { data, error } = await supabaseClient.rpc('send_line_notification', {
+          p_line_user_id: binding.line_user_id,
+          p_message: receiptMessage
+        });
+
+        if (error) {
+          console.error('❌ 發送 LINE 收據失敗：', error);
+          return false;
+        }
+
+        console.log('✅ LINE 收據已發送');
+
+        // 記錄通知
+        await supabaseClient.from('line_notifications').insert({
+          line_user_id: binding.line_user_id,
+          phone: transaction.receiver_phone,
+          notification_type: 'receipt',
+          shipment_id: transaction.shipment_id,
+          tracking_no: transaction.tracking_no,
+          message_content: `取件收據 - ${transaction.transaction_no}`,
+          flex_message: receiptMessage,
+          status: 'sent'
+        });
+
+        return true;
+
+      } catch (error) {
+        console.error('❌ 發送 LINE 收據時發生錯誤：', error);
+        // 不阻擋結帳流程
+        return false;
+      }
+    }
+
     async function logAction(action, transactionNo, trackingNo) {
       try {
         await supabaseClient

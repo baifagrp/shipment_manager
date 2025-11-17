@@ -534,7 +534,7 @@
             .select('*')
             .eq('tracking_no', trackingNoFromQR)
             .like('receiver_phone', `%${phoneNumber}%`)
-            .in('status', ['包裹已配達取件門市', '物流單已建立', '包裹離店作業中', '包裹抵達理貨中心，處理中'])
+            .eq('status', '包裹已配達取件門市')
             .single();
           
           error = result.error;
@@ -547,7 +547,7 @@
             .from('shipments')
             .select('*')
             .like('receiver_phone', `%${phoneNumber}%`)
-            .in('status', ['包裹已配達取件門市', '物流單已建立', '包裹離店作業中', '包裹抵達理貨中心，處理中'])
+            .eq('status', '包裹已配達取件門市')
             .order('created_at', { ascending: false });
           
           error = result.error;
@@ -558,9 +558,9 @@
 
         if (!shipments || shipments.length === 0) {
           if (trackingNoFromQR) {
-            showMessage('電話號碼與包裹資料不符，請確認後重試', 'error', 'screen1');
+            showMessage('電話號碼與包裹資料不符，或包裹尚未到店，請確認後重試', 'error', 'screen1');
           } else {
-            showMessage('查無待取件包裹，請確認電話號碼或聯繫櫃檯', 'error', 'screen1');
+            showMessage('查無已到店待取件包裹，請確認電話號碼或聯繫櫃檯', 'error', 'screen1');
           }
           return;
         }

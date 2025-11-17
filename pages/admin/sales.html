@@ -758,6 +758,12 @@
             return;
           }
 
+          // 檢查包裹狀態
+          if (data.status !== '包裹已配達取件門市') {
+            showMessage(`此包裹狀態為「${data.status}」，尚未到店無法取件`, 'error');
+            return;
+          }
+
           shipments = [data];
         } else {
           // 使用手機末三碼查詢
@@ -767,13 +773,13 @@
             .from('shipments')
             .select('*')
             .like('receiver_phone', `%${searchValue}`)
-            .neq('status', '取件成功')
-            .order('created_at', { ascending: false });
+            .eq('status', '包裹已配達取件門市')
+            .order('created_at', { ascending: false});
 
           if (error) throw error;
 
           if (!data || data.length === 0) {
-            showMessage('找不到符合的貨件', 'error');
+            showMessage('找不到已到店待取件的貨件', 'error');
             return;
           }
 
@@ -788,12 +794,6 @@
 
         // 單筆結果，直接顯示
         const shipment = shipments[0];
-
-        // 檢查狀態
-        if (shipment.status === '取件成功') {
-          showMessage('此貨件已完成取件', 'warning');
-          return;
-        }
 
         // 檢查是否已有取件記錄
         const { data: existingTransaction } = await supabaseClient
@@ -968,6 +968,12 @@
           .single();
 
         if (error) throw error;
+
+        // 更新包裹狀態為「取件成功」
+        await supabaseClient
+          .from('shipments')
+          .update({ status: '取件成功' })
+          .eq('id', currentShipment.id);
 
         // 記錄結帳動作
         await logAction('pickup_checkout', transaction.transaction_no, transaction.tracking_no);

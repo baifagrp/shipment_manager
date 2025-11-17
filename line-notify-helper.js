@@ -46,6 +46,44 @@ async function sendLINENotification(lineUserId, message) {
  */
 async function notifyPackageArrival(phone, shipment) {
   try {
+    // ✅ 如果包裹有驗證碼，使用新的統一格式（包含驗證碼）
+    if (shipment.require_code && shipment.verification_code) {
+      console.log('📦 包裹需要驗證碼，發送統一格式通知');
+      
+      // 取得門市名稱（從 receiver_address 或使用預設）
+      const storeName = shipment.receiver_address || CONFIG.UI.PRINT.COMPANY.ADDRESS || 'NPHONE-KHJG';
+      
+      // 格式化日期
+      const arrivalDate = new Date().toLocaleDateString('zh-TW', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).replace(/\//g, '/');
+      
+      // 使用驗證碼通知函數（已包含完整資訊）
+      const success = await notifyVerificationCode(
+        phone,
+        shipment.verification_code,
+        shipment.tracking_no,
+        storeName,
+        arrivalDate
+      );
+      
+      if (success) {
+        // 更新貨件狀態
+        await supabaseClient
+          .from('shipments')
+          .update({
+            line_notified: true,
+            line_notified_time: new Date().toISOString()
+          })
+          .eq('id', shipment.id);
+      }
+      
+      return success;
+    }
+    
+    // ⚠️ 如果沒有驗證碼，使用原本的 Flex Message 格式
     // 查詢 LINE 綁定資訊
     const { data: binding, error } = await supabaseClient
       .from('line_bindings')
@@ -102,13 +140,15 @@ async function notifyPackageArrival(phone, shipment) {
 }
 
 /**
- * 發送驗證碼通知
+ * 發送驗證碼通知（已整合至包裹到店通知，此函數保留供獨立使用）
  * @param {string} phone - 手機號碼
  * @param {string} verificationCode - 驗證碼
  * @param {string} trackingNo - 包裹編號
+ * @param {string} storeName - 取件門市（可選）
+ * @param {string} arrivalDate - 送達日期（可選）
  * @returns {Promise<boolean>} - 是否成功
  */
-async function notifyVerificationCode(phone, verificationCode, trackingNo) {
+async function notifyVerificationCode(phone, verificationCode, trackingNo, storeName = '', arrivalDate = '') {
   try {
     // 查詢 LINE 綁定資訊
     const { data: binding } = await supabaseClient
@@ -121,12 +161,21 @@ async function notifyVerificationCode(phone, verificationCode, trackingNo) {
       return false;
     }
 
-    // 建立訊息
+    // 格式化日期
+    const dateStr = arrivalDate || new Date().toLocaleDateString('zh-TW', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).replace(/\//g, '/');
+
+    // 建立訊息（新格式）
     const message = {
       type: 'text',
-      text: `🔐 取貨驗證碼\n\n` +
+      text: `📦 您有1個包裹已送達取件門市\n\n` +
             `包裹編號：${trackingNo}\n` +
-            `驗證碼：${verificationCode}\n\n` +
+            (storeName ? `取件門市：${storeName}\n` : '') +
+            `送達日期：${dateStr}\n` +
+            `🔐 取貨驗證碼：${verificationCode}\n\n` +
             `⚠️ 請妥善保管驗證碼，取件時需出示此碼。\n` +
             `請勿將驗證碼告知他人。`
     };

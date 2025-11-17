@@ -1496,19 +1496,8 @@
 
         hideForm();
         
-        // 🔔 發送 LINE 通知（如果已綁定）
-        if (CONFIG.FEATURES.LINE_OA && !isEditMode && result.verification_code) {
-          // 自動發送驗證碼通知
-          window.LINENotify.notifyVerificationCode(
-            result.receiver_phone,
-            result.verification_code,
-            result.tracking_no
-          ).then(sent => {
-            if (sent) {
-              console.log('✅ 驗證碼已透過 LINE 發送');
-            }
-          });
-        }
+        // ⚠️ 不在建立時發送驗證碼，改為在「待取件」時發送
+        // 驗證碼將在包裹到店時一併發送
         
         // 顯示成功訊息
         let successMsg = isEditMode ? '貨件更新成功！' : '貨件建立成功！';

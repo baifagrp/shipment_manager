@@ -1536,9 +1536,9 @@
 
         if (error) throw error;
 
-        // 🔔 發送 LINE 到店通知（如果狀態是「待取件」且尚未通知）
+        // 🔔 發送 LINE 到店通知（如果狀態是「包裹已配達取件門市」且尚未通知）
         if (CONFIG.FEATURES.LINE_OA && CONFIG.LINE.MESSAGING.NOTIFY_ON_ARRIVAL && 
-            nextStatus === '待取件' && data && data[0]) {
+            nextStatus === '包裹已配達取件門市' && data && data[0]) {
           const updatedShipment = data[0];
           if (!updatedShipment.line_notified) {
             window.LINENotify.notifyArrival(

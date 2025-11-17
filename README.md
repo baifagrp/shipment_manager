@@ -162,12 +162,15 @@
 - 更新貨件狀態為「取件成功」
 - 列印 58mm 取件收據
 - 交易記錄上傳
+- **自動發送 LINE 電子收據** ⭐
 
 **特色：**
 - 條碼掃描器支援
 - 雙查詢模式切換
 - 防重複取件機制
 - 完整交易日誌
+- **自動生成唯一交易單號（TXN-YYYYMMDD-NNNN）** ⭐
+- **LINE Flex Message 精美電子收據** ⭐
 
 **流程：**
 ```
@@ -191,11 +194,12 @@
 
 **功能：**
 - LINE Login 會員綁定 (`pages/customer/line-bind.html`)
-- 包裹到店自動推播通知
+- 包裹到店自動推播通知（Flex Message）
 - 取貨驗證碼 LINE 通知
+- **結帳完成自動發送電子收據** ⭐
 - LIFF 查詢頁面（在 LINE 內開啟）
-- Flex Message 精美卡片訊息
-- 自動記錄推播歷史
+- 管理員訊息群發工具 (`pages/admin/liff-send.html`)
+- 完整推播歷史記錄
 
 **特色：**
 - 零設定綁定流程（掃 QR → 輸入手機 → 完成）
@@ -220,10 +224,27 @@
 
 **流程：**
 ```
-顧客綁定 LINE → 包裹狀態變更「待取件」 → 自動發送通知 → 顧客點擊查看 → LIFF 開啟查詢頁
+顧客綁定 LINE → 包裹到店推播 → 櫃檯結帳 → 自動發送電子收據（含交易單號）
 ```
 
-📚 **詳細設定請參考：** [LINE-SETUP-GUIDE.md](./LINE-SETUP-GUIDE.md)
+**LINE 電子收據範例：**
+```
+┌─────────────────────────────┐
+│ RECEIPT (綠色)              │
+│ BAIFA.GRP                   │
+│ 門市地址                     │
+├─────────────────────────────┤
+│ 取貨服務                     │
+│ 20251117-0001      $100     │
+├─────────────────────────────┤
+│ ITEMS                    1  │
+│ TOTAL                 $100  │
+│ CASH                  $500  │ ← 付費時顯示
+│ CHANGE                $400  │ ← 自動計算找零
+├─────────────────────────────┤
+│ PAYMENT ID  #TXN-20251117-0001 ← 唯一交易單號
+└─────────────────────────────┘
+```
 
 ---
 
@@ -362,10 +383,11 @@ const CONFIG = {
 **依序在 Supabase SQL Editor 執行以下 SQL 檔案：**
 
 1. **基礎表結構** - 創建 users、shipments、notifications、logs 表
-2. **`create-pos-tables.sql`** - POS 系統表（pickup_transactions、stores、pos_logs）
-3. **`create-checkin-tables.sql`** - 報到系統表（checkin_records、checkin_sequence、call_history、kiosk_logs）
-4. **`add-cod-amount-field.sql`** - 添加代收金額欄位
-5. **`fix-all-missing-columns.sql`** - 修復缺失欄位和外鍵約束
+2. **`supabase/create-transaction-function.sql`** - 取件交易表與交易單號生成函數 ⭐
+3. **`supabase/create-line-tables.sql`** - LINE 綁定與通知表
+4. **`supabase/create-line-message-logs.sql`** - LINE 訊息記錄表與發送函數
+5. **`supabase/create-app-settings.sql`** - 安全設定儲存表（LINE API Keys）
+6. **`supabase/fix-app-settings-rls.sql`** - 修復 app_settings RLS 政策
 
 **或使用整合腳本：**
 

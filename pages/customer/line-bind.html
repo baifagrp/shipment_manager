@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LINE 會員綁定 - BaiFa.GRP</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="../../config.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 20px;
+      padding: 40px 30px;
+      max-width: 500px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      text-align: center;
+    }
+
+    .logo {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      font-weight: bold;
+      color: white;
+      margin: 0 auto 20px;
+      box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+    }
+
+    h1 {
+      font-size: 28px;
+      color: #1a202c;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      color: #718096;
+      font-size: 16px;
+      margin-bottom: 30px;
+    }
+
+    .line-logo {
+      width: 120px;
+      margin: 20px 0;
+    }
+
+    .screen {
+      display: none;
+    }
+
+    .screen.active {
+      display: block;
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+      text-align: left;
+    }
+
+    .form-group label {
+      display: block;
+      color: #4a5568;
+      font-weight: 600;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 15px;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      font-size: 16px;
+      transition: all 0.3s ease;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .btn {
+      width: 100%;
+      padding: 16px;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-top: 10px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 15px 40px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background: #f7fafc;
+      color: #4a5568;
+      border: 2px solid #e2e8f0;
+    }
+
+    .btn-secondary:hover {
+      background: #edf2f7;
+    }
+
+    .profile-card {
+      background: #f7fafc;
+      border-radius: 15px;
+      padding: 20px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .profile-avatar {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid white;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .profile-info {
+      flex: 1;
+      text-align: left;
+    }
+
+    .profile-name {
+      font-weight: 600;
+      color: #1a202c;
+      font-size: 18px;
+      margin-bottom: 4px;
+    }
+
+    .profile-status {
+      color: #718096;
+      font-size: 14px;
+    }
+
+    .alert {
+      padding: 15px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      text-align: left;
+    }
+
+    .alert-info {
+      background: #bee3f8;
+      color: #2c5282;
+      border-left: 4px solid #3182ce;
+    }
+
+    .alert-success {
+      background: #c6f6d5;
+      color: #22543d;
+      border-left: 4px solid #38a169;
+    }
+
+    .alert-error {
+      background: #fed7d7;
+      color: #742a2a;
+      border-left: 4px solid #e53e3e;
+    }
+
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 0.8s linear infinite;
+      margin-right: 10px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .success-icon {
+      width: 80px;
+      height: 80px;
+      background: #48bb78;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+      color: white;
+      margin: 0 auto 20px;
+      animation: scaleIn 0.5s ease-out;
+    }
+
+    @keyframes scaleIn {
+      from {
+        transform: scale(0);
+      }
+      to {
+        transform: scale(1);
+      }
+    }
+
+    .features {
+      background: #f7fafc;
+      border-radius: 15px;
+      padding: 20px;
+      margin-top: 20px;
+      text-align: left;
+    }
+
+    .features h3 {
+      color: #1a202c;
+      font-size: 16px;
+      margin-bottom: 15px;
+    }
+
+    .feature-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      color: #4a5568;
+      font-size: 14px;
+    }
+
+    .feature-item::before {
+      content: "✓";
+      width: 24px;
+      height: 24px;
+      background: #667eea;
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+
+    .help-text {
+      color: #718096;
+      font-size: 13px;
+      margin-top: 15px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Screen 1: 載入中 -->
+    <div id="screen-loading" class="screen active">
+      <div class="logo">B</div>
+      <h1>初始化中...</h1>
+      <p class="subtitle">請稍候，正在連接 LINE 服務</p>
+    </div>
+
+    <!-- Screen 2: 輸入手機號碼 -->
+    <div id="screen-phone" class="screen">
+      <div class="logo">B</div>
+      <h1>綁定會員帳號</h1>
+      <p class="subtitle">將您的 LINE 帳號與會員系統綁定</p>
+
+      <div class="profile-card">
+        <img id="userAvatar" src="" alt="頭像" class="profile-avatar">
+        <div class="profile-info">
+          <div class="profile-name" id="userName">載入中...</div>
+          <div class="profile-status">LINE 使用者</div>
+        </div>
+      </div>
+
+      <div class="alert alert-info">
+        💡 請輸入您的手機號碼以完成綁定。綁定後您將自動收到包裹到店通知。
+      </div>
+
+      <form id="bindForm" onsubmit="return false;">
+        <div class="form-group">
+          <label for="phoneInput">手機號碼</label>
+          <input 
+            type="tel" 
+            id="phoneInput" 
+            placeholder="請輸入手機號碼（例如：0912345678）"
+            maxlength="10"
+            required
+          >
+        </div>
+
+        <button type="submit" class="btn btn-primary" id="bindBtn">
+          確認綁定
+        </button>
+      </form>
+
+      <div class="features">
+        <h3>綁定後您將享有：</h3>
+        <div class="feature-item">包裹到店自動通知</div>
+        <div class="feature-item">一鍵查詢包裹狀態</div>
+        <div class="feature-item">專屬會員優惠</div>
+        <div class="feature-item">生日禮遇與活動訊息</div>
+      </div>
+
+      <p class="help-text">
+        ⚠️ 請確保手機號碼正確，此號碼將用於接收包裹與會員相關通知。
+      </p>
+    </div>
+
+    <!-- Screen 3: 綁定成功 -->
+    <div id="screen-success" class="screen">
+      <div class="success-icon">✓</div>
+      <h1>綁定成功！</h1>
+      <p class="subtitle">您的 LINE 帳號已成功綁定</p>
+
+      <div class="alert alert-success">
+        🎉 恭喜！您現在可以透過 LINE 接收包裹通知了。
+      </div>
+
+      <div class="profile-card">
+        <img id="successAvatar" src="" alt="頭像" class="profile-avatar">
+        <div class="profile-info">
+          <div class="profile-name" id="successName">載入中...</div>
+          <div class="profile-status" id="successPhone">手機：載入中...</div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="goToSearch()">
+        查詢我的包裹
+      </button>
+
+      <button class="btn btn-secondary" onclick="liff.closeWindow()">
+        關閉視窗
+      </button>
+
+      <p class="help-text">
+        💡 提示：您可以隨時在選單中查詢包裹狀態或解除綁定。
+      </p>
+    </div>
+
+    <!-- Screen 4: 錯誤畫面 -->
+    <div id="screen-error" class="screen">
+      <div class="logo">⚠️</div>
+      <h1>綁定失敗</h1>
+      <p class="subtitle">抱歉，綁定過程中發生錯誤</p>
+
+      <div class="alert alert-error" id="errorMessage">
+        發生未知錯誤，請稍後再試。
+      </div>
+
+      <button class="btn btn-primary" onclick="location.reload()">
+        重新嘗試
+      </button>
+
+      <button class="btn btn-secondary" onclick="liff.closeWindow()">
+        關閉視窗
+      </button>
+
+      <p class="help-text">
+        如果問題持續發生，請聯繫客服：0973-116-277
+      </p>
+    </div>
+  </div>
+
+  <script>
+    // 初始化 Supabase
+    const supabaseClient = supabase.createClient(
+      CONFIG.SUPABASE.URL,
+      CONFIG.SUPABASE.ANON_KEY
+    );
+
+    let lineProfile = null;
+
+    // 初始化 LIFF
+    async function initLiff() {
+      try {
+        console.log('🚀 初始化 LIFF...');
+        
+        // 檢查是否已設定 LIFF ID
+        if (!CONFIG.LINE.LIFF_ID) {
+          showError('系統尚未設定 LINE LIFF，請聯繫管理員。');
+          return;
+        }
+
+        await liff.init({ liffId: CONFIG.LINE.LIFF_ID });
+        console.log('✅ LIFF 初始化成功');
+
+        // 檢查是否登入
+        if (!liff.isLoggedIn()) {
+          console.log('⚠️ 未登入，導向 LINE Login');
+          liff.login();
+          return;
+        }
+
+        // 取得 LINE 使用者資料
+        lineProfile = await liff.getProfile();
+        console.log('👤 LINE 使用者資料：', lineProfile);
+
+        // 檢查是否已綁定
+        await checkExistingBinding();
+
+      } catch (error) {
+        console.error('❌ LIFF 初始化失敗：', error);
+        showError('LINE 服務初始化失敗：' + error.message);
+      }
+    }
+
+    // 檢查是否已綁定
+    async function checkExistingBinding() {
+      try {
+        const { data, error } = await supabaseClient
+          .from('line_bindings')
+          .select('*')
+          .eq('line_user_id', lineProfile.userId)
+          .single();
+
+        if (data) {
+          console.log('✅ 已綁定，顯示成功畫面');
+          showSuccessScreen(data.phone);
+        } else {
+          console.log('⚠️ 尚未綁定，顯示輸入畫面');
+          showPhoneScreen();
+        }
+      } catch (error) {
+        console.error('❌ 查詢綁定失敗：', error);
+        // 查無資料也算正常，顯示輸入畫面
+        showPhoneScreen();
+      }
+    }
+
+    // 顯示手機輸入畫面
+    function showPhoneScreen() {
+      document.getElementById('screen-loading').classList.remove('active');
+      document.getElementById('screen-phone').classList.add('active');
+
+      // 顯示 LINE 使用者資料
+      document.getElementById('userName').textContent = lineProfile.displayName;
+      document.getElementById('userAvatar').src = lineProfile.pictureUrl || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%23ddd"/><text x="50" y="60" text-anchor="middle" fill="white" font-size="40">?</text></svg>';
+
+      // 綁定表單提交
+      document.getElementById('bindForm').addEventListener('submit', handleBind);
+    }
+
+    // 處理綁定
+    async function handleBind(e) {
+      e.preventDefault();
+
+      const phone = document.getElementById('phoneInput').value.trim();
+      const bindBtn = document.getElementById('bindBtn');
+
+      // 驗證手機號碼
+      if (!/^09\d{8}$/.test(phone)) {
+        alert('⚠️ 請輸入正確的手機號碼格式（例如：0912345678）');
+        return;
+      }
+
+      bindBtn.disabled = true;
+      bindBtn.innerHTML = '<span class="loading"></span>綁定中...';
+
+      try {
+        // 檢查手機號碼是否已被綁定
+        const { data: existingPhone } = await supabaseClient
+          .from('line_bindings')
+          .select('*')
+          .eq('phone', phone)
+          .single();
+
+        if (existingPhone && existingPhone.line_user_id !== lineProfile.userId) {
+          alert('⚠️ 此手機號碼已綁定其他 LINE 帳號。如需更換綁定，請聯繫客服。');
+          bindBtn.disabled = false;
+          bindBtn.textContent = '確認綁定';
+          return;
+        }
+
+        // 新增或更新綁定
+        const { error } = await supabaseClient
+          .from('line_bindings')
+          .upsert({
+            phone: phone,
+            line_user_id: lineProfile.userId,
+            display_name: lineProfile.displayName,
+            picture_url: lineProfile.pictureUrl,
+            status_message: lineProfile.statusMessage || null,
+            bind_time: new Date().toISOString(),
+            is_blocked: false
+          }, {
+            onConflict: 'line_user_id'
+          });
+
+        if (error) throw error;
+
+        console.log('✅ 綁定成功');
+        showSuccessScreen(phone);
+
+      } catch (error) {
+        console.error('❌ 綁定失敗：', error);
+        alert('❌ 綁定失敗：' + error.message);
+        bindBtn.disabled = false;
+        bindBtn.textContent = '確認綁定';
+      }
+    }
+
+    // 顯示成功畫面
+    function showSuccessScreen(phone) {
+      document.getElementById('screen-loading').classList.remove('active');
+      document.getElementById('screen-phone').classList.remove('active');
+      document.getElementById('screen-success').classList.add('active');
+
+      document.getElementById('successName').textContent = lineProfile.displayName;
+      document.getElementById('successPhone').textContent = '手機：' + phone;
+      document.getElementById('successAvatar').src = lineProfile.pictureUrl || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%23ddd"/><text x="50" y="60" text-anchor="middle" fill="white" font-size="40">?</text></svg>';
+    }
+
+    // 顯示錯誤畫面
+    function showError(message) {
+      document.getElementById('screen-loading').classList.remove('active');
+      document.getElementById('screen-phone').classList.remove('active');
+      document.getElementById('screen-error').classList.add('active');
+      document.getElementById('errorMessage').innerHTML = `⚠️ ${message}`;
+    }
+
+    // 前往查詢頁面
+    function goToSearch() {
+      if (liff.isInClient()) {
+        // 在 LINE 內開啟 LIFF 查詢頁面
+        const searchUrl = `${window.location.origin}${CONFIG.LINE.LIFF_PAGES.SEARCH}`;
+        liff.openWindow({ url: searchUrl, external: false });
+      } else {
+        // 在外部瀏覽器直接跳轉
+        window.location.href = CONFIG.LINE.LIFF_PAGES.SEARCH;
+      }
+    }
+
+    // 初始化
+    window.addEventListener('load', () => {
+      console.log('🚀 LINE 綁定頁面載入完成');
+      initLiff();
+    });
+  </script>
+</body>
+</html>
+

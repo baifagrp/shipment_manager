@@ -7,6 +7,7 @@
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="config.js"></script>
+  <script src="line-notify-helper.js"></script>
   <style>
     /* -------------------------
        蘋果風格 UI 設計系統
@@ -1495,6 +1496,20 @@
 
         hideForm();
         
+        // 🔔 發送 LINE 通知（如果已綁定）
+        if (CONFIG.FEATURES.LINE_OA && !isEditMode && result.verification_code) {
+          // 自動發送驗證碼通知
+          window.LINENotify.notifyVerificationCode(
+            result.receiver_phone,
+            result.verification_code,
+            result.tracking_no
+          ).then(sent => {
+            if (sent) {
+              console.log('✅ 驗證碼已透過 LINE 發送');
+            }
+          });
+        }
+        
         // 顯示成功訊息
         let successMsg = isEditMode ? '貨件更新成功！' : '貨件建立成功！';
         if (result.verification_code) {
@@ -1521,15 +1536,33 @@
           return;
         }
 
-        const { error } = await supabaseClient
+        const { data, error } = await supabaseClient
           .from('shipments')
           .update({ 
             status: nextStatus,
             updated_at: new Date().toISOString()
           })
-          .eq('id', shipmentId);
+          .eq('id', shipmentId)
+          .select();
 
         if (error) throw error;
+
+        // 🔔 發送 LINE 到店通知（如果狀態是「待取件」且尚未通知）
+        if (CONFIG.FEATURES.LINE_OA && CONFIG.LINE.MESSAGING.NOTIFY_ON_ARRIVAL && 
+            nextStatus === '待取件' && data && data[0]) {
+          const updatedShipment = data[0];
+          if (!updatedShipment.line_notified) {
+            window.LINENotify.notifyArrival(
+              updatedShipment.receiver_phone,
+              updatedShipment
+            ).then(sent => {
+              if (sent) {
+                console.log('✅ LINE 到店通知已發送');
+                showMessage('已更新狀態並發送 LINE 通知', 'success');
+              }
+            });
+          }
+        }
 
         await loadShipments();
         if (selectedShipmentId === shipmentId) {

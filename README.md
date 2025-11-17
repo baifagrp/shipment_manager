@@ -2,8 +2,8 @@
 
 > 一個功能完整的現代化店到店貨物管理系統，整合自助報到、櫃檯叫號、POS 結帳、公播顯示、顧客查詢等完整解決方案。
 
-**版本：** 1.3.0  
-**最後更新：** 2025/10/27
+**版本：** 1.4.0  
+**最後更新：** 2025/10/28
 
 ---
 
@@ -37,6 +37,7 @@
 - ✅ **公播顯示** - 大螢幕叫號顯示，清晰易見
 - ✅ **行動友善** - 響應式設計，支援各種裝置
 - ✅ **蘋果風格** - 優雅的 UI 設計，符合現代審美
+- ⭐ **LINE 整合** - 自動推播通知，會員綁定，LIFF 查詢
 
 ---
 
@@ -186,6 +187,44 @@
 - 即時錯誤提示
 - 自動重新載入用戶資訊
 
+### 💬 8. LINE 官方帳號整合 ⭐ NEW
+
+**功能：**
+- LINE Login 會員綁定 (`pages/customer/line-bind.html`)
+- 包裹到店自動推播通知
+- 取貨驗證碼 LINE 通知
+- LIFF 查詢頁面（在 LINE 內開啟）
+- Flex Message 精美卡片訊息
+- 自動記錄推播歷史
+
+**特色：**
+- 零設定綁定流程（掃 QR → 輸入手機 → 完成）
+- 包裹狀態變更自動推播
+- 代收金額與驗證碼同步顯示
+- 多包裹列表快速切換
+- LINE 內分享功能
+
+**適用場景：**
+- 📦 包裹到店即時通知
+- 🔐 驗證碼安全傳送
+- 📱 顧客便捷查詢
+- 🎁 行銷活動推播
+- 💬 客服自動回覆
+
+**技術整合：**
+- LINE Login API（會員綁定）
+- LINE Messaging API（推播通知）
+- LIFF (LINE Front-end Framework)
+- Supabase Edge Function（自動化）
+- Database Webhook（即時觸發）
+
+**流程：**
+```
+顧客綁定 LINE → 包裹狀態變更「待取件」 → 自動發送通知 → 顧客點擊查看 → LIFF 開啟查詢頁
+```
+
+📚 **詳細設定請參考：** [LINE-SETUP-GUIDE.md](./LINE-SETUP-GUIDE.md)
+
 ---
 
 ## 技術架構
@@ -201,6 +240,8 @@
 | QRCode.js | QR Code 生成 | - |
 | JsBarcode | 條碼生成 | - |
 | Web Speech API | 語音播報 | - |
+| LINE LIFF SDK | LINE 內嵌頁面 | v2 |
+| Web Share API | 行動分享功能 | - |
 
 ### 🔧 後端服務
 
@@ -209,7 +250,10 @@
 | Supabase Auth | 用戶認證與授權 |
 | Supabase Database | PostgreSQL 資料庫 |
 | Supabase Realtime | 即時資料同步 |
+| Supabase Edge Functions | 無伺服器函數（自動推播） |
 | Row Level Security (RLS) | 資料安全控制 |
+| LINE Messaging API | LINE 訊息推播 |
+| LINE Login | LINE 帳號綁定 |
 
 ### 📊 系統架構圖
 
@@ -218,14 +262,15 @@
 │                   用戶端                         │
 ├─────────────────────────────────────────────────┤
 │  index.html        │  主系統（貨件管理）         │
-│  shpsearch.html    │  顧客包裹查詢              │
+│  shpsearch.html    │  顧客包裹查詢（支援 LIFF）  │
+│  line-bind.html    │  LINE 會員綁定（LIFF）      │
 │  checkin.html      │  自助報到 Kiosk            │
 │  counter.html      │  櫃檯叫號管理              │
 │  display.html      │  公播顯示畫面              │
 │  sales.html        │  POS 取件結帳              │
 └────────────┬────────────────────────────────────┘
              │
-             ↓ Supabase JS SDK
+             ↓ Supabase JS SDK / LINE LIFF SDK
              │
 ┌────────────┴────────────────────────────────────┐
 │              Supabase 後端                       │
@@ -233,7 +278,19 @@
 │  • Authentication  （用戶認證）                  │
 │  • PostgreSQL      （資料庫）                    │
 │  • Realtime        （即時同步）                  │
-│  • Storage         （檔案儲存，可選）            │
+│  • Edge Functions  （自動推播）                  │
+│  • Webhooks        （狀態觸發）                  │
+└────────────┬────────────────────────────────────┘
+             │
+             ↓ HTTP API
+             │
+┌────────────┴────────────────────────────────────┐
+│              LINE Platform                       │
+├─────────────────────────────────────────────────┤
+│  • Messaging API   （推播通知）                  │
+│  • LINE Login      （帳號綁定）                  │
+│  • LIFF            （內嵌網頁）                  │
+│  • Rich Menu       （圖文選單，可選）            │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -1526,21 +1583,29 @@ SOFTWARE.
 ## 📊 項目統計
 
 **程式碼統計：**
-- 總行數：~11,000 行
-- HTML 文件：7 個（新增顧客查詢頁面）
-- JavaScript：~6,000 行
-- CSS：~2,000 行
-- SQL 腳本：10+ 個
+- 總行數：~13,000+ 行
+- HTML 文件：9 個（含 LINE 綁定與查詢頁面）
+- JavaScript：~7,000+ 行
+- CSS：~2,500+ 行
+- SQL 腳本：12+ 個
+- TypeScript (Edge Functions)：1 個
 
 **功能模組：**
-- 核心模組：6 個
-- 資料表：10+ 個
-- API 端點：Supabase 自動生成
+- 核心模組：8 個（新增 LINE OA 整合）
+- 資料表：12+ 個（新增 LINE 相關表）
+- API 端點：Supabase 自動生成 + LINE API
+- Edge Functions：1 個（自動推播）
 
 **文檔：**
-- 指南文檔：12+ 個
-- 總字數：~50,000 字
-- 範例代碼：100+ 段
+- 指南文檔：14+ 個
+- 總字數：~60,000+ 字
+- 範例代碼：120+ 段
+
+**外部整合：**
+- ✅ Supabase（資料庫 + 認證 + Realtime）
+- ✅ LINE Messaging API（推播通知）
+- ✅ LINE Login（會員綁定）
+- ✅ LIFF（內嵌網頁）
 
 ---
 
@@ -1552,8 +1617,8 @@ SOFTWARE.
 
 ---
 
-**最後更新：** 2025/10/27  
-**版本：** 1.2.0  
+**最後更新：** 2025/10/28  
+**版本：** 1.4.0  
 **狀態：** ✅ 生產就緒
 
 © 2025 BaiFa.GRP

@@ -65,6 +65,46 @@ const CONFIG = {
     }
   },
 
+  // LINE 官方帳號設定
+  LINE: {
+    // LINE Login Channel ID（請在 LINE Developers 申請）
+    LOGIN_CHANNEL_ID: '2008510299',  // 例如：'1234567890'
+    
+    // LIFF App ID（請在 LINE Developers 建立）
+    LIFF_ID: '2008510299-QK9pYMgd',  // 例如：'1234567890-abcdefgh'
+    
+    // LINE Messaging API Channel Access Token（請在 LINE Developers 取得）
+    // ⚠️ 注意：正式環境應存放在後端，此處僅供測試用
+    CHANNEL_ACCESS_TOKEN: 'YxOqg7ZIc3JpOQun2kJjmpuoPotzuXwicVjE6FvbRtuc+rSjencX6dJiUMfhY4DySgIY1uBpHhRidZTiZjQP7XPqgCkOJM7ey6eVB11B3AKgpV4MQ06X2O+lZTaYXPsrNobvkGXTbhwOBLD2CFyWAQdB04t89/1O/w1cDnyilFU=',
+    
+    // LINE Messaging API 推播設定
+    MESSAGING: {
+      // 是否啟用自動推播
+      AUTO_NOTIFY: true,
+      
+      // 推播類型開關
+      NOTIFY_ON_ARRIVAL: true,  // 包裹到店通知
+      NOTIFY_ON_REMINDER: true,  // 取件提醒（未取件）
+      NOTIFY_VERIFICATION_CODE: true,  // 驗證碼通知
+      
+      // 提醒時機（包裹到店後幾小時）
+      REMINDER_HOURS: [24, 48, 72],  // 1天、2天、3天
+      
+      // Flex Message 樣式
+      FLEX_MESSAGE_COLOR: '#0a84ff',  // 主題色
+      
+      // Rich Menu ID（可選）
+      RICH_MENU_ID: ''
+    },
+    
+    // LIFF 頁面對應
+    LIFF_PAGES: {
+      SEARCH: '/pages/customer/shpsearch.html',  // 查詢包裹
+      BIND: '/pages/customer/line-bind.html',     // 綁定會員
+      CHECKIN: '/pages/customer/checkin.html'    // 自助報到
+    }
+  },
+
   // 功能開關
   FEATURES: {
     // 是否啟用即時同步
@@ -72,6 +112,9 @@ const CONFIG = {
     
     // 是否啟用通知
     NOTIFICATIONS: true,
+    
+    // 是否啟用 LINE 官方帳號
+    LINE_OA: true,
     
     // 是否啟用資料匯出
     EXPORT: true,

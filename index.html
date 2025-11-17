@@ -7,6 +7,7 @@
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="config.js"></script>
+  <script src="config-loader.js"></script>
   <script src="line-notify-helper.js"></script>
   <style>
     /* -------------------------
@@ -2404,7 +2405,10 @@
 
     // 初始化
     async function init() {
-      // 檢查是否已登入
+      // ✅ 第一步：載入 LINE 設定（從 Supabase）
+      await initLineConfig();
+      
+      // 第二步：檢查是否已登入
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (session) {
         currentUser = session.user;

@@ -67,15 +67,18 @@ const CONFIG = {
 
   // LINE 官方帳號設定
   LINE: {
-    // LINE Login Channel ID（請在 LINE Developers 申請）
-    LOGIN_CHANNEL_ID: '2008510299',  // 例如：'1234567890'
+    // ✅ 以下設定將從 Supabase app_settings 表動態載入
+    // 透過 config-loader.js 的 initLineConfig() 自動更新
     
-    // LIFF App ID（請在 LINE Developers 建立）
-    LIFF_ID: '2008510299-QK9pYMgd',  // 例如：'1234567890-abcdefgh'
+    // LINE Login Channel ID（將從資料庫載入）
+    LOGIN_CHANNEL_ID: '',  // 預設空值，由 config-loader.js 填入
+    
+    // LIFF App ID（將從資料庫載入）
+    LIFF_ID: '',  // 預設空值，由 config-loader.js 填入
     
     // LINE Messaging API Channel Access Token
-    // ✅ 已移至 Supabase Edge Function 環境變數（更安全）
-    // CHANNEL_ACCESS_TOKEN: 'MOVED_TO_EDGE_FUNCTION',
+    // ⚠️ 此設定已完全移至 Supabase，只在後端函數中使用
+    // 前端不再需要也不應該存取此 Token
     
     // LINE Messaging API 推播設定
     MESSAGING: {
@@ -91,7 +94,7 @@ const CONFIG = {
       REMINDER_HOURS: [24, 48, 72],  // 1天、2天、3天
       
       // Flex Message 樣式
-      FLEX_MESSAGE_COLOR: '#0a84ff',  // 主題色
+      FLEX_MESSAGE_COLOR: '#000000',  // 主題色
       
       // Rich Menu ID（可選）
       RICH_MENU_ID: ''

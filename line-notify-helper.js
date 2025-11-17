@@ -46,44 +46,8 @@ async function sendLINENotification(lineUserId, message) {
  */
 async function notifyPackageArrival(phone, shipment) {
   try {
-    // ✅ 如果包裹有驗證碼，使用新的統一格式（包含驗證碼）
-    if (shipment.require_code && shipment.verification_code) {
-      console.log('📦 包裹需要驗證碼，發送統一格式通知');
-      
-      // 取得門市名稱（從 receiver_address 或使用預設）
-      const storeName = shipment.receiver_address || CONFIG.UI.PRINT.COMPANY.ADDRESS || 'NPHONE-KHJG';
-      
-      // 格式化日期
-      const arrivalDate = new Date().toLocaleDateString('zh-TW', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-      }).replace(/\//g, '/');
-      
-      // 使用驗證碼通知函數（已包含完整資訊）
-      const success = await notifyVerificationCode(
-        phone,
-        shipment.verification_code,
-        shipment.tracking_no,
-        storeName,
-        arrivalDate
-      );
-      
-      if (success) {
-        // 更新貨件狀態
-        await supabaseClient
-          .from('shipments')
-          .update({
-            line_notified: true,
-            line_notified_time: new Date().toISOString()
-          })
-          .eq('id', shipment.id);
-      }
-      
-      return success;
-    }
+    // ✅ 統一使用 Flex Message 格式（有無驗證碼都一樣精美）
     
-    // ⚠️ 如果沒有驗證碼，使用原本的 Flex Message 格式
     // 查詢 LINE 綁定資訊
     const { data: binding, error } = await supabaseClient
       .from('line_bindings')
@@ -215,7 +179,7 @@ function createArrivalFlexMessage(shipment) {
 
   return {
     type: 'flex',
-    altText: `📦 您的包裹 ${shipment.tracking_no} 已到店`,
+    altText: `📦 您有1個包裹已送達取件門市`,
     contents: {
       type: 'bubble',
       hero: {
@@ -224,14 +188,14 @@ function createArrivalFlexMessage(shipment) {
         contents: [
           {
             type: 'text',
-            text: '📦 包裹到店通知',
+            text: '📦 包裹已送達門市',
             weight: 'bold',
             size: 'xl',
             color: '#ffffff'
           },
           {
             type: 'text',
-            text: '您的包裹已送達門市',
+            text: '您有1個包裹已到店，請盡快取件',
             color: '#ffffff',
             size: 'sm',
             margin: 'md'
@@ -289,14 +253,41 @@ function createArrivalFlexMessage(shipment) {
                 contents: [
                   {
                     type: 'text',
-                    text: '取件地址',
+                    text: '取件門市',
                     color: '#aaaaaa',
                     size: 'sm',
                     flex: 1
                   },
                   {
                     type: 'text',
-                    text: shipment.receiver_address || CONFIG.UI.PRINT.COMPANY.ADDRESS || '-',
+                    text: shipment.receiver_address || CONFIG.UI.PRINT.COMPANY.ADDRESS || 'NPHONE-KHJG',
+                    wrap: true,
+                    color: '#666666',
+                    size: 'sm',
+                    flex: 3
+                  }
+                ]
+              },
+              // 送達日期
+              {
+                type: 'box',
+                layout: 'baseline',
+                spacing: 'sm',
+                contents: [
+                  {
+                    type: 'text',
+                    text: '送達日期',
+                    color: '#aaaaaa',
+                    size: 'sm',
+                    flex: 1
+                  },
+                  {
+                    type: 'text',
+                    text: new Date().toLocaleDateString('zh-TW', {
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit'
+                    }).replace(/\//g, '/'),
                     wrap: true,
                     color: '#666666',
                     size: 'sm',

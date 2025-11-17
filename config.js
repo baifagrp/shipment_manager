@@ -73,13 +73,13 @@ const CONFIG = {
     // LIFF App ID（請在 LINE Developers 建立）
     LIFF_ID: '2008510299-QK9pYMgd',  // 例如：'1234567890-abcdefgh'
     
-    // LINE Messaging API Channel Access Token（請在 LINE Developers 取得）
-    // ⚠️ 注意：正式環境應存放在後端，此處僅供測試用
-    CHANNEL_ACCESS_TOKEN: 'YxOqg7ZIc3JpOQun2kJjmpuoPotzuXwicVjE6FvbRtuc+rSjencX6dJiUMfhY4DySgIY1uBpHhRidZTiZjQP7XPqgCkOJM7ey6eVB11B3AKgpV4MQ06X2O+lZTaYXPsrNobvkGXTbhwOBLD2CFyWAQdB04t89/1O/w1cDnyilFU=',
+    // LINE Messaging API Channel Access Token
+    // ✅ 已移至 Supabase Edge Function 環境變數（更安全）
+    // CHANNEL_ACCESS_TOKEN: 'MOVED_TO_EDGE_FUNCTION',
     
     // LINE Messaging API 推播設定
     MESSAGING: {
-      // 是否啟用自動推播
+      // 是否啟用自動推播（使用 Supabase RPC，無需 Edge Function）
       AUTO_NOTIFY: true,
       
       // 推播類型開關

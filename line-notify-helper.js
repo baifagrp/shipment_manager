@@ -11,31 +11,27 @@
  */
 async function sendLINENotification(lineUserId, message) {
   try {
-    if (!CONFIG.LINE.CHANNEL_ACCESS_TOKEN) {
-      console.warn('⚠️ 未設定 LINE Channel Access Token');
+    // ✅ 使用 Supabase RPC 呼叫 Database Function（不需要 Edge Function）
+    console.log('🔔 透過 Supabase RPC 發送 LINE 通知...');
+
+    const { data, error } = await supabaseClient
+      .rpc('send_line_notification', {
+        p_line_user_id: lineUserId,
+        p_message: message
+      });
+
+    if (error) {
+      console.error('❌ RPC 呼叫失敗：', error);
       return false;
     }
 
-    const response = await fetch('https://api.line.me/v2/bot/message/push', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${CONFIG.LINE.CHANNEL_ACCESS_TOKEN}`
-      },
-      body: JSON.stringify({
-        to: lineUserId,
-        messages: [message]
-      })
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      console.error('❌ LINE 推播失敗：', error);
+    if (data && data.success) {
+      console.log('✅ LINE 通知已發送');
+      return true;
+    } else {
+      console.error('❌ LINE 推播失敗：', data?.error || 'Unknown error');
       return false;
     }
-
-    console.log('✅ LINE 通知已發送');
-    return true;
   } catch (error) {
     console.error('❌ LINE 通知發送錯誤：', error);
     return false;

@@ -7,6 +7,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script src="../../config.js"></script>
+  <script src="../../config-loader.js"></script>
   <style>
     * {
       margin: 0;
@@ -16,7 +17,7 @@
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, #787878 0%, #4e4e4e 100%);
       min-height: 100vh;
       display: flex;
       align-items: center;
@@ -418,10 +419,81 @@
 
     let lineProfile = null;
 
+    // ============================================
+    // 動態載入 LINE 設定（本地版本）
+    // ============================================
+    async function loadLineSettingsLocal() {
+      try {
+        console.log('🔄 正在從 Supabase 載入 LINE 設定...');
+        
+        const { data, error } = await supabaseClient
+          .from('app_settings')
+          .select('setting_key, setting_value')
+          .in('setting_key', ['LINE_LOGIN_CHANNEL_ID', 'LINE_LIFF_ID']);
+        
+        if (error) {
+          console.error('❌ 載入設定失敗：', error);
+          return null;
+        }
+        
+        const settings = {};
+        data.forEach(item => {
+          settings[item.setting_key] = item.setting_value;
+        });
+        
+        console.log('✅ LINE 設定載入成功', settings);
+        return settings;
+        
+      } catch (error) {
+        console.error('❌ 載入設定時發生錯誤：', error);
+        return null;
+      }
+    }
+
+    async function initLineConfigLocal() {
+      try {
+        console.log('📞 開始執行 initLineConfigLocal...');
+        const settings = await loadLineSettingsLocal();
+        
+        console.log('📦 loadLineSettingsLocal 返回:', settings);
+        
+        if (settings) {
+          if (settings.LINE_LOGIN_CHANNEL_ID) {
+            CONFIG.LINE.LOGIN_CHANNEL_ID = settings.LINE_LOGIN_CHANNEL_ID;
+            console.log('✅ 設定 LOGIN_CHANNEL_ID:', settings.LINE_LOGIN_CHANNEL_ID);
+          } else {
+            console.warn('⚠️ settings 中沒有 LINE_LOGIN_CHANNEL_ID');
+          }
+          
+          if (settings.LINE_LIFF_ID) {
+            CONFIG.LINE.LIFF_ID = settings.LINE_LIFF_ID;
+            console.log('✅ 設定 LIFF_ID:', settings.LINE_LIFF_ID);
+          } else {
+            console.warn('⚠️ settings 中沒有 LINE_LIFF_ID');
+          }
+          
+          console.log('✅ LINE 設定已更新');
+          console.log('  - LOGIN_CHANNEL_ID:', CONFIG.LINE.LOGIN_CHANNEL_ID);
+          console.log('  - LIFF_ID:', CONFIG.LINE.LIFF_ID);
+          return true;
+        } else {
+          console.error('❌ loadLineSettingsLocal 返回 null 或 undefined');
+          return false;
+        }
+      } catch (error) {
+        console.error('❌ 初始化 LINE 設定失敗：', error);
+        console.error('錯誤堆疊：', error.stack);
+        return false;
+      }
+    }
+
     // 初始化 LIFF
     async function initLiff() {
       try {
         console.log('🚀 初始化 LIFF...');
+        
+        // ✅ 第一步：載入 LINE 設定
+        await initLineConfigLocal();
         
         // 檢查是否已設定 LIFF ID
         if (!CONFIG.LINE.LIFF_ID) {

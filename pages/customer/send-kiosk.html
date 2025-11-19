@@ -1,0 +1,1883 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>自助寄件 - Kiosk 系統</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../../config.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #434343;
+      --success: #28c76f;
+      --danger: #ff3b30;
+      --warning: #ff9500;
+      --info: #0a84ff;
+      --muted: #6b7280;
+      --bg: #f5f7fa;
+      --card-bg: #ffffff;
+      --border: #e5e7eb;
+    }
+
+    body {
+      font-family: "Microsoft JhengHei", "Noto Sans TC", -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #e3e3e3 0%, #dfdfdf 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .kiosk-container {
+      background: var(--card-bg);
+      border-radius: 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      max-width: 800px;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    .kiosk-header {
+      background: linear-gradient(135deg, #4a4a4a, #2c2c2c);
+      color: white;
+      padding: 40px 32px;
+      text-align: center;
+    }
+
+    .kiosk-logo {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    .kiosk-title {
+      font-size: 32px;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    .kiosk-subtitle {
+      font-size: 18px;
+      opacity: 0.9;
+    }
+
+    .kiosk-body {
+      padding: 40px 32px;
+    }
+
+    /* 步驟指示器 */
+    .step-indicator {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 40px;
+      position: relative;
+    }
+
+    .step-indicator::before {
+      content: '';
+      position: absolute;
+      top: 20px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--border);
+      z-index: 0;
+    }
+
+    .step-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    .step-circle {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--bg);
+      border: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: var(--muted);
+      margin-bottom: 8px;
+      transition: all 0.3s;
+    }
+
+    .step-item.active .step-circle {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+      transform: scale(1.1);
+    }
+
+    .step-item.completed .step-circle {
+      background: var(--success);
+      border-color: var(--success);
+      color: white;
+    }
+
+    .step-label {
+      font-size: 12px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .step-item.active .step-label {
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    /* 畫面切換 */
+    .screen {
+      display: none;
+    }
+
+    .screen.active {
+      display: block;
+      animation: fadeIn 0.3s;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .screen-title {
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 24px;
+      color: #1f2937;
+      text-align: center;
+    }
+
+    /* 表單樣式 */
+    .form-section {
+      margin-bottom: 32px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group.full-width {
+      grid-column: span 2;
+    }
+
+    .form-label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #374151;
+      font-size: 14px;
+    }
+
+    .form-label .required {
+      color: var(--danger);
+      margin-left: 4px;
+    }
+
+    .form-input,
+    .form-select,
+    .form-textarea {
+      width: 100%;
+      padding: 12px 16px;
+      font-size: 16px;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .form-input:focus,
+    .form-select:focus,
+    .form-textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(67, 67, 67, 0.1);
+    }
+
+    .form-textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .form-hint {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* 按鈕組 */
+    .btn-group {
+      display: flex;
+      gap: 12px;
+      margin-top: 32px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 16px 24px;
+      border: none;
+      border-radius: 12px;
+      font-size: 18px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #2c2c2c;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(67, 67, 67, 0.3);
+    }
+
+    .btn-secondary {
+      background: var(--muted);
+      color: white;
+    }
+
+    .btn-secondary:hover {
+      background: #4b5563;
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: white;
+    }
+
+    .btn-success:hover {
+      background: #22a55e;
+    }
+
+    /* 確認畫面 */
+    .confirm-section {
+      background: var(--bg);
+      padding: 24px;
+      border-radius: 12px;
+      margin-bottom: 24px;
+    }
+
+    .confirm-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .confirm-row:last-child {
+      border-bottom: none;
+    }
+
+    .confirm-label {
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .confirm-value {
+      font-weight: 600;
+      color: #1f2937;
+      text-align: right;
+    }
+
+    .confirm-value.highlight {
+      color: var(--danger);
+      font-size: 18px;
+    }
+
+    /* 成功畫面 */
+    .success-screen {
+      text-align: center;
+    }
+
+    .success-icon {
+      font-size: 80px;
+      margin-bottom: 24px;
+      animation: bounce 0.5s;
+    }
+
+    @keyframes bounce {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+
+    .tracking-display {
+      background: linear-gradient(135deg, var(--primary), #2c2c2c);
+      color: white;
+      padding: 32px;
+      border-radius: 16px;
+      margin: 24px 0;
+    }
+
+    .tracking-label {
+      font-size: 14px;
+      opacity: 0.9;
+      margin-bottom: 8px;
+    }
+
+    .tracking-number {
+      font-size: 36px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      font-family: "Courier New", monospace;
+    }
+
+    /* 訊息提示 */
+    .message {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .message.error {
+      background: #ffecee;
+      color: var(--danger);
+      border: 1px solid var(--danger);
+    }
+
+    .message.warning {
+      background: #fff8e6;
+      color: var(--warning);
+      border: 1px solid var(--warning);
+    }
+
+    .message.info {
+      background: #f0f4ff;
+      color: var(--info);
+      border: 1px solid var(--info);
+    }
+
+    /* Loading */
+    .loading {
+      text-align: center;
+      padding: 40px;
+    }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid var(--border);
+      border-top: 4px solid var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Radio 按鈕組 */
+    .radio-group {
+      display: flex;
+      gap: 16px;
+      margin-top: 8px;
+    }
+
+    .radio-option {
+      flex: 1;
+      position: relative;
+    }
+
+    .radio-option input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+    }
+
+    .radio-label {
+      display: block;
+      padding: 16px;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-weight: 600;
+    }
+
+    .radio-option input[type="radio"]:checked + .radio-label {
+      border-color: var(--primary);
+      background: var(--primary);
+      color: white;
+    }
+
+    .radio-label:hover {
+      border-color: var(--primary);
+    }
+  </style>
+</head>
+<body>
+  <div class="kiosk-container">
+    <!-- 頭部 -->
+    <div class="kiosk-header">
+      <div class="kiosk-logo">📦</div>
+      <h1 class="kiosk-title">自助寄件</h1>
+      <p class="kiosk-subtitle">快速寄送您的包裹</p>
+    </div>
+
+    <div class="kiosk-body">
+      <!-- 步驟指示器 -->
+      <div class="step-indicator">
+        <div class="step-item active" id="stepItem1">
+          <div class="step-circle">1</div>
+          <div class="step-label">寄/收件人</div>
+        </div>
+        <div class="step-item" id="stepItem2">
+          <div class="step-circle">2</div>
+          <div class="step-label">包裹資訊</div>
+        </div>
+        <div class="step-item" id="stepItem3">
+          <div class="step-circle">3</div>
+          <div class="step-label">費用設定</div>
+        </div>
+        <div class="step-item" id="stepItem4">
+          <div class="step-circle">4</div>
+          <div class="step-label">確認送出</div>
+        </div>
+      </div>
+
+      <!-- 步驟 1: 寄/收件人資訊 -->
+      <div id="screen1" class="screen active">
+        <div class="screen-title">📋 填寫寄件人與收件人資訊</div>
+
+        <div id="screen1Message"></div>
+
+        <form id="step1Form">
+          <!-- 寄件人資訊 -->
+          <div class="form-section">
+            <div class="section-title">
+              <span>📤</span>
+              <span>寄件人資訊</span>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">
+                  姓名 <span class="required">*</span>
+                </label>
+                <input 
+                  type="text" 
+                  class="form-input" 
+                  id="senderName" 
+                  placeholder="請輸入寄件人姓名"
+                  required
+                >
+              </div>
+              <div class="form-group">
+                <label class="form-label">
+                  電話 <span class="required">*</span>
+                </label>
+                <input 
+                  type="tel" 
+                  class="form-input" 
+                  id="senderPhone" 
+                  placeholder="0912345678"
+                  pattern="[0-9]{10}"
+                  required
+                >
+                <div class="form-hint">請輸入10碼手機號碼</div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">
+                地址 <span class="required">*</span>
+              </label>
+              <input 
+                type="text" 
+                class="form-input" 
+                id="senderAddress" 
+                placeholder="請輸入完整地址"
+                required
+              >
+            </div>
+          </div>
+
+          <!-- 收件人資訊 -->
+          <div class="form-section">
+            <div class="section-title">
+              <span>📥</span>
+              <span>收件人資訊</span>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">
+                  姓名 <span class="required">*</span>
+                </label>
+                <input 
+                  type="text" 
+                  class="form-input" 
+                  id="receiverName" 
+                  placeholder="請輸入收件人姓名"
+                  required
+                >
+              </div>
+              <div class="form-group">
+                <label class="form-label">
+                  電話 <span class="required">*</span>
+                </label>
+                <input 
+                  type="tel" 
+                  class="form-input" 
+                  id="receiverPhone" 
+                  placeholder="0912345678"
+                  pattern="[0-9]{10}"
+                  required
+                >
+                <div class="form-hint">請輸入10碼手機號碼</div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">
+                地址 <span class="required">*</span>
+              </label>
+              <input 
+                type="text" 
+                class="form-input" 
+                id="receiverAddress" 
+                placeholder="請輸入完整地址"
+                required
+              >
+            </div>
+          </div>
+
+          <div class="btn-group">
+            <button type="button" class="btn btn-secondary" onclick="resetKiosk()">取消</button>
+            <button type="submit" class="btn btn-primary">下一步 →</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- 步驟 2: 包裹資訊 -->
+      <div id="screen2" class="screen">
+        <div class="screen-title">📦 包裹詳細資訊</div>
+
+        <div id="screen2Message"></div>
+
+        <form id="step2Form">
+          <div class="form-section">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">
+                  品名 <span class="required">*</span>
+                </label>
+                <input 
+                  type="text" 
+                  class="form-input" 
+                  id="itemName" 
+                  placeholder="例：文件、衣物、3C產品"
+                  required
+                >
+              </div>
+              <div class="form-group">
+                <label class="form-label">
+                  數量
+                </label>
+                <input 
+                  type="number" 
+                  class="form-input" 
+                  id="quantity" 
+                  value="1"
+                  min="1"
+                  max="99"
+                >
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">
+                  重量 (kg)
+                </label>
+                <input 
+                  type="number" 
+                  class="form-input" 
+                  id="weight" 
+                  placeholder="0.5"
+                  step="0.1"
+                  min="0.1"
+                  max="30"
+                >
+                <div class="form-hint">選填，最大30公斤</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">
+                  尺寸 (cm)
+                </label>
+                <input 
+                  type="text" 
+                  class="form-input" 
+                  id="dimensions" 
+                  placeholder="長 x 寬 x 高"
+                >
+                <div class="form-hint">選填，例：30x20x10</div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">備註</label>
+              <textarea 
+                class="form-textarea" 
+                id="note" 
+                placeholder="其他需要說明的事項（選填）"
+              ></textarea>
+            </div>
+          </div>
+
+          <div class="btn-group">
+            <button type="button" class="btn btn-secondary" onclick="previousStep()">← 上一步</button>
+            <button type="submit" class="btn btn-primary">下一步 →</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- 步驟 3: 代收及運費設定 -->
+      <div id="screen3" class="screen">
+        <div class="screen-title">💰 費用設定</div>
+
+        <div id="screen3Message"></div>
+
+        <form id="step3Form">
+          <div class="form-section">
+            <div class="section-title">
+              <span>💵</span>
+              <span>代收金額（COD）</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">代收金額</label>
+              <input 
+                type="number" 
+                class="form-input" 
+                id="codAmount" 
+                placeholder="0"
+                min="0"
+                step="1"
+                value="0"
+              >
+              <div class="form-hint">需向收件人收取的金額（0 = 不需代收）</div>
+            </div>
+
+            <div class="message info">
+              <span>ℹ️</span>
+              <span>代收金額為 0 時，系統將自動產生取貨驗證碼以保障您的包裹安全</span>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="section-title">
+              <span>🚚</span>
+              <span>運費設定</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">運費付款人</label>
+              <div class="radio-group">
+                <div class="radio-option">
+                  <input type="radio" name="shippingPayer" id="payerSender" value="sender" checked>
+                  <label for="payerSender" class="radio-label">寄件人付款</label>
+                </div>
+                <div class="radio-option">
+                  <input type="radio" name="shippingPayer" id="payerReceiver" value="receiver">
+                  <label for="payerReceiver" class="radio-label">收件人付款</label>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">運費金額</label>
+              <div style="padding: 12px 16px; font-size: 24px; font-weight: bold; color: var(--primary); background: var(--bg); border-radius: 8px; text-align: center;">
+                NT$ 60
+              </div>
+              <div class="form-hint">固定運費</div>
+            </div>
+          </div>
+
+          <div class="btn-group">
+            <button type="button" class="btn btn-secondary" onclick="previousStep()">← 上一步</button>
+            <button type="submit" class="btn btn-primary">下一步 →</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- 步驟 4: 確認資訊 -->
+      <div id="screen4" class="screen">
+        <div class="screen-title">✅ 確認寄件資訊</div>
+
+        <div id="screen4Message"></div>
+
+        <!-- 寄件人資訊 -->
+        <div class="confirm-section">
+          <div class="section-title">
+            <span>📤</span>
+            <span>寄件人</span>
+          </div>
+          <div class="confirm-row">
+            <span class="confirm-label">姓名</span>
+            <span class="confirm-value" id="confirmSenderName">-</span>
+          </div>
+          <div class="confirm-row">
+            <span class="confirm-label">電話</span>
+            <span class="confirm-value" id="confirmSenderPhone">-</span>
+          </div>
+          <div class="confirm-row">
+            <span class="confirm-label">地址</span>
+            <span class="confirm-value" id="confirmSenderAddress">-</span>
+          </div>
+        </div>
+
+        <!-- 收件人資訊 -->
+        <div class="confirm-section">
+          <div class="section-title">
+            <span>📥</span>
+            <span>收件人</span>
+          </div>
+          <div class="confirm-row">
+            <span class="confirm-label">姓名</span>
+            <span class="confirm-value" id="confirmReceiverName">-</span>
+          </div>
+          <div class="confirm-row">
+            <span class="confirm-label">電話</span>
+            <span class="confirm-value" id="confirmReceiverPhone">-</span>
+          </div>
+          <div class="confirm-row">
+            <span class="confirm-label">地址</span>
+            <span class="confirm-value" id="confirmReceiverAddress">-</span>
+          </div>
+        </div>
+
+        <!-- 包裹資訊 -->
+        <div class="confirm-section">
+          <div class="section-title">
+            <span>📦</span>
+            <span>包裹內容</span>
+          </div>
+          <div class="confirm-row">
+            <span class="confirm-label">品名</span>
+            <span class="confirm-value" id="confirmItemName">-</span>
+          </div>
+          <div class="confirm-row">
+            <span class="confirm-label">數量</span>
+            <span class="confirm-value" id="confirmQuantity">-</span>
+          </div>
+          <div class="confirm-row">
+            <span class="confirm-label">重量</span>
+            <span class="confirm-value" id="confirmWeight">-</span>
+          </div>
+          <div class="confirm-row">
+            <span class="confirm-label">尺寸</span>
+            <span class="confirm-value" id="confirmDimensions">-</span>
+          </div>
+          <div class="confirm-row">
+            <span class="confirm-label">備註</span>
+            <span class="confirm-value" id="confirmNote">-</span>
+          </div>
+        </div>
+
+        <!-- 費用資訊 -->
+        <div class="confirm-section">
+          <div class="section-title">
+            <span>💰</span>
+            <span>費用明細</span>
+          </div>
+          <div class="confirm-row">
+            <span class="confirm-label">代收金額</span>
+            <span class="confirm-value highlight" id="confirmCodAmount">$0</span>
+          </div>
+          <div class="confirm-row">
+            <span class="confirm-label">運費</span>
+            <span class="confirm-value" id="confirmShippingFee">$60</span>
+          </div>
+          <div class="confirm-row">
+            <span class="confirm-label">運費付款人</span>
+            <span class="confirm-value" id="confirmShippingPayer">-</span>
+          </div>
+        </div>
+
+        <div class="btn-group">
+          <button type="button" class="btn btn-secondary" onclick="previousStep()">← 上一步</button>
+          <button type="button" class="btn btn-success" onclick="submitShipment()">
+            <span>✓</span>
+            <span>確認送出</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 步驟 5: 完成畫面 -->
+      <div id="screen5" class="screen">
+        <div class="success-screen">
+          <div class="success-icon">✅</div>
+          <div class="screen-title">寄件成功！</div>
+
+          <div class="tracking-display">
+            <div class="tracking-label">您的寄件單號</div>
+            <div class="tracking-number" id="finalTrackingNo">-</div>
+          </div>
+
+          <div class="message info">
+            <span>📋</span>
+            <span>請列印寄件單並貼於包裹上</span>
+          </div>
+
+          <div class="btn-group">
+            <button type="button" class="btn btn-primary" onclick="printShipmentLabel()">
+              <span>🖨️</span>
+              <span>列印寄件單</span>
+            </button>
+            <button type="button" class="btn btn-success" onclick="resetKiosk()">
+              <span>✓</span>
+              <span>完成</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Supabase 初始化
+    const { createClient } = supabase;
+    const supabaseClient = createClient(CONFIG.SUPABASE.URL, CONFIG.SUPABASE.ANON_KEY);
+
+    // 全域變數
+    let currentStep = 1;
+    let shipmentData = {
+      sender: {},
+      receiver: {},
+      package: {},
+      payment: {}
+    };
+    let createdShipment = null;
+
+    // 初始化
+    function init() {
+      // 綁定表單提交事件
+      document.getElementById('step1Form').addEventListener('submit', handleStep1Submit);
+      document.getElementById('step2Form').addEventListener('submit', handleStep2Submit);
+      document.getElementById('step3Form').addEventListener('submit', handleStep3Submit);
+
+      console.log('🚀 自助寄件 Kiosk 系統已啟動');
+    }
+
+    // 步驟 1 表單提交
+    function handleStep1Submit(e) {
+      e.preventDefault();
+      
+      // 驗證電話格式
+      const senderPhone = document.getElementById('senderPhone').value;
+      const receiverPhone = document.getElementById('receiverPhone').value;
+      
+      if (!/^[0-9]{10}$/.test(senderPhone)) {
+        showMessage('寄件人電話格式錯誤，請輸入10碼數字', 'error', 'screen1Message');
+        return;
+      }
+      
+      if (!/^[0-9]{10}$/.test(receiverPhone)) {
+        showMessage('收件人電話格式錯誤，請輸入10碼數字', 'error', 'screen1Message');
+        return;
+      }
+
+      // 儲存資料
+      shipmentData.sender = {
+        name: document.getElementById('senderName').value.trim(),
+        phone: senderPhone,
+        address: document.getElementById('senderAddress').value.trim()
+      };
+
+      shipmentData.receiver = {
+        name: document.getElementById('receiverName').value.trim(),
+        phone: receiverPhone,
+        address: document.getElementById('receiverAddress').value.trim()
+      };
+
+      console.log('✅ 步驟 1 完成', shipmentData);
+      nextStep();
+    }
+
+    // 步驟 2 表單提交
+    function handleStep2Submit(e) {
+      e.preventDefault();
+
+      const itemName = document.getElementById('itemName').value.trim();
+      if (!itemName) {
+        showMessage('請輸入品名', 'error', 'screen2Message');
+        return;
+      }
+
+      // 儲存資料
+      shipmentData.package = {
+        itemName: itemName,
+        quantity: parseInt(document.getElementById('quantity').value) || 1,
+        weight: parseFloat(document.getElementById('weight').value) || null,
+        dimensions: document.getElementById('dimensions').value.trim() || null,
+        note: document.getElementById('note').value.trim() || null
+      };
+
+      console.log('✅ 步驟 2 完成', shipmentData);
+      nextStep();
+    }
+
+    // 步驟 3 表單提交
+    function handleStep3Submit(e) {
+      e.preventDefault();
+
+      const codAmount = parseFloat(document.getElementById('codAmount').value) || 0;
+      const shippingFee = 60; // 固定運費 60 元
+      const shippingPayer = document.querySelector('input[name="shippingPayer"]:checked').value;
+
+      // 儲存資料
+      shipmentData.payment = {
+        codAmount: codAmount,
+        shippingFee: shippingFee,
+        shippingPayer: shippingPayer
+      };
+
+      console.log('✅ 步驟 3 完成', shipmentData);
+      
+      // 顯示確認畫面
+      displayConfirmation();
+      nextStep();
+    }
+
+    // 顯示確認資訊
+    function displayConfirmation() {
+      // 寄件人
+      document.getElementById('confirmSenderName').textContent = shipmentData.sender.name;
+      document.getElementById('confirmSenderPhone').textContent = shipmentData.sender.phone;
+      document.getElementById('confirmSenderAddress').textContent = shipmentData.sender.address;
+
+      // 收件人
+      document.getElementById('confirmReceiverName').textContent = shipmentData.receiver.name;
+      document.getElementById('confirmReceiverPhone').textContent = shipmentData.receiver.phone;
+      document.getElementById('confirmReceiverAddress').textContent = shipmentData.receiver.address;
+
+      // 包裹
+      document.getElementById('confirmItemName').textContent = shipmentData.package.itemName;
+      document.getElementById('confirmQuantity').textContent = shipmentData.package.quantity + ' 件';
+      document.getElementById('confirmWeight').textContent = shipmentData.package.weight ? shipmentData.package.weight + ' kg' : '未提供';
+      document.getElementById('confirmDimensions').textContent = shipmentData.package.dimensions || '未提供';
+      document.getElementById('confirmNote').textContent = shipmentData.package.note || '無';
+
+      // 費用
+      document.getElementById('confirmCodAmount').textContent = '$' + shipmentData.payment.codAmount;
+      document.getElementById('confirmShippingFee').textContent = '$' + shipmentData.payment.shippingFee;
+      document.getElementById('confirmShippingPayer').textContent = 
+        shipmentData.payment.shippingPayer === 'sender' ? '寄件人付款' : '收件人付款';
+    }
+
+    // 送出寄件資料
+    async function submitShipment() {
+      showLoading('screen4Message');
+
+      try {
+        // 生成寄件單號
+        const trackingNo = generateTrackingNumber();
+
+        // 組合資料
+        const shipment = {
+          tracking_no: trackingNo,
+          sender_name: shipmentData.sender.name,
+          sender_phone: shipmentData.sender.phone,
+          sender_address: shipmentData.sender.address,
+          receiver_name: shipmentData.receiver.name,
+          receiver_phone: shipmentData.receiver.phone,
+          receiver_address: shipmentData.receiver.address,
+          item_name: shipmentData.package.itemName,
+          quantity: shipmentData.package.quantity,
+          weight: shipmentData.package.weight,
+          note: shipmentData.package.note,
+          cod_amount: shipmentData.payment.codAmount,
+          status: '物流單已建立'
+        };
+
+        // 🔐 代收金額為 0 時自動生成驗證碼
+        if (shipmentData.payment.codAmount === 0) {
+          shipment.verification_code = generateVerificationCode();
+          shipment.require_code = true;
+          console.log('🔐 代收金額為 0，已生成取貨驗證碼：', shipment.verification_code);
+        } else {
+          shipment.verification_code = null;
+          shipment.require_code = false;
+        }
+
+        // 儲存到 Supabase
+        const { data, error } = await supabaseClient
+          .from('shipments')
+          .insert([shipment])
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        createdShipment = data;
+        console.log('✅ 寄件資料已儲存：', createdShipment);
+
+        // 記錄操作日誌
+        await logKioskAction('shipment_created', trackingNo);
+
+        // 發送 LINE 寄件收據給寄件人
+        await sendShipmentReceipt(createdShipment);
+
+        // 顯示成功畫面
+        document.getElementById('finalTrackingNo').textContent = trackingNo;
+        nextStep();
+
+      } catch (error) {
+        console.error('❌ 寄件失敗：', error);
+        showMessage('寄件失敗：' + error.message, 'error', 'screen4Message');
+      } finally {
+        hideLoading('screen4Message');
+      }
+    }
+
+    // 發送 LINE 寄件收據給寄件人
+    async function sendShipmentReceipt(shipment) {
+      try {
+        console.log('📤 準備發送寄件收據給:', shipment.sender_phone);
+
+        // 查詢寄件人的 LINE 綁定資訊
+        const { data: binding, error: bindingError } = await supabaseClient
+          .from('line_bindings')
+          .select('line_user_id, is_blocked')
+          .eq('phone', shipment.sender_phone)
+          .single();
+
+        if (bindingError || !binding) {
+          console.log('ℹ️ 寄件人尚未綁定 LINE，跳過發送收據');
+          return false;
+        }
+
+        if (binding.is_blocked) {
+          console.log('⚠️ 寄件人已封鎖官方帳號，跳過發送');
+          return false;
+        }
+
+        // 建立寄件收據 Flex Message
+        const receiptMessage = {
+          type: "flex",
+          altText: `📦 寄件收據 - ${shipment.tracking_no}`,
+          contents: {
+            type: "bubble",
+            body: {
+              type: "box",
+              layout: "vertical",
+              contents: [
+                {
+                  type: "text",
+                  text: "SHIPMENT RECEIPT",
+                  weight: "bold",
+                  color: "#1DB446",
+                  size: "sm"
+                },
+                {
+                  type: "text",
+                  text: CONFIG.UI.PRINT.COMPANY.NAME,
+                  weight: "bold",
+                  size: "xxl",
+                  margin: "md"
+                },
+                {
+                  type: "text",
+                  text: "寄件收據",
+                  size: "xs",
+                  color: "#aaaaaa",
+                  wrap: true
+                },
+                {
+                  type: "separator",
+                  margin: "xxl"
+                },
+                {
+                  type: "box",
+                  layout: "vertical",
+                  margin: "xxl",
+                  spacing: "sm",
+                  contents: [
+                    {
+                      type: "box",
+                      layout: "horizontal",
+                      contents: [
+                        {
+                          type: "text",
+                          text: "寄件單號",
+                          size: "sm",
+                          color: "#555555",
+                          flex: 0
+                        },
+                        {
+                          type: "text",
+                          text: shipment.tracking_no,
+                          size: "sm",
+                          color: "#111111",
+                          align: "end",
+                          weight: "bold"
+                        }
+                      ]
+                    },
+                    {
+                      type: "box",
+                      layout: "horizontal",
+                      contents: [
+                        {
+                          type: "text",
+                          text: "寄件時間",
+                          size: "sm",
+                          color: "#555555",
+                          flex: 0
+                        },
+                        {
+                          type: "text",
+                          text: new Date().toLocaleString('zh-TW'),
+                          size: "sm",
+                          color: "#111111",
+                          align: "end"
+                        }
+                      ]
+                    },
+                    {
+                      type: "separator",
+                      margin: "xxl"
+                    },
+                    {
+                      type: "box",
+                      layout: "horizontal",
+                      margin: "xxl",
+                      contents: [
+                        {
+                          type: "text",
+                          text: "寄件人",
+                          size: "sm",
+                          color: "#555555"
+                        },
+                        {
+                          type: "text",
+                          text: shipment.sender_name,
+                          size: "sm",
+                          color: "#111111",
+                          align: "end"
+                        }
+                      ]
+                    },
+                    {
+                      type: "box",
+                      layout: "horizontal",
+                      contents: [
+                        {
+                          type: "text",
+                          text: "寄件電話",
+                          size: "sm",
+                          color: "#555555"
+                        },
+                        {
+                          type: "text",
+                          text: shipment.sender_phone,
+                          size: "sm",
+                          color: "#111111",
+                          align: "end"
+                        }
+                      ]
+                    },
+                    {
+                      type: "separator",
+                      margin: "xxl"
+                    },
+                    {
+                      type: "box",
+                      layout: "horizontal",
+                      margin: "xxl",
+                      contents: [
+                        {
+                          type: "text",
+                          text: "收件人",
+                          size: "sm",
+                          color: "#555555"
+                        },
+                        {
+                          type: "text",
+                          text: shipment.receiver_name,
+                          size: "sm",
+                          color: "#111111",
+                          align: "end"
+                        }
+                      ]
+                    },
+                    {
+                      type: "box",
+                      layout: "horizontal",
+                      contents: [
+                        {
+                          type: "text",
+                          text: "收件電話",
+                          size: "sm",
+                          color: "#555555"
+                        },
+                        {
+                          type: "text",
+                          text: shipment.receiver_phone,
+                          size: "sm",
+                          color: "#111111",
+                          align: "end"
+                        }
+                      ]
+                    },
+                    {
+                      type: "separator",
+                      margin: "xxl"
+                    },
+                    {
+                      type: "box",
+                      layout: "horizontal",
+                      margin: "xxl",
+                      contents: [
+                        {
+                          type: "text",
+                          text: "品名",
+                          size: "sm",
+                          color: "#555555"
+                        },
+                        {
+                          type: "text",
+                          text: shipment.item_name,
+                          size: "sm",
+                          color: "#111111",
+                          align: "end"
+                        }
+                      ]
+                    },
+                    {
+                      type: "box",
+                      layout: "horizontal",
+                      contents: [
+                        {
+                          type: "text",
+                          text: "數量",
+                          size: "sm",
+                          color: "#555555"
+                        },
+                        {
+                          type: "text",
+                          text: `${shipment.quantity} 件`,
+                          size: "sm",
+                          color: "#111111",
+                          align: "end"
+                        }
+                      ]
+                    },
+                    {
+                      type: "box",
+                      layout: "horizontal",
+                      contents: [
+                        {
+                          type: "text",
+                          text: "運費",
+                          size: "sm",
+                          color: "#555555"
+                        },
+                        {
+                          type: "text",
+                          text: "$60",
+                          size: "sm",
+                          color: "#111111",
+                          align: "end"
+                        }
+                      ]
+                    },
+                    ...(shipment.cod_amount > 0 ? [{
+                      type: "box",
+                      layout: "horizontal",
+                      contents: [
+                        {
+                          type: "text",
+                          text: "代收金額",
+                          size: "sm",
+                          color: "#555555"
+                        },
+                        {
+                          type: "text",
+                          text: `$${shipment.cod_amount}`,
+                          size: "sm",
+                          color: "#ff3b30",
+                          align: "end",
+                          weight: "bold"
+                        }
+                      ]
+                    }] : [])
+                  ]
+                },
+                {
+                  type: "separator",
+                  margin: "xxl"
+                },
+                {
+                  type: "box",
+                  layout: "horizontal",
+                  margin: "md",
+                  contents: [
+                    {
+                      type: "text",
+                      text: "STATUS",
+                      size: "xs",
+                      color: "#aaaaaa",
+                      flex: 0
+                    },
+                    {
+                      type: "text",
+                      text: shipment.status,
+                      color: "#aaaaaa",
+                      size: "xs",
+                      align: "end"
+                    }
+                  ]
+                }
+              ]
+            },
+            styles: {
+              footer: {
+                separator: true
+              }
+            }
+          }
+        };
+
+        // 呼叫 Supabase RPC 發送收據
+        const { data, error } = await supabaseClient.rpc('send_line_notification', {
+          p_line_user_id: binding.line_user_id,
+          p_message: receiptMessage
+        });
+
+        if (error) {
+          console.error('❌ 發送 LINE 寄件收據失敗：', error);
+          return false;
+        }
+
+        console.log('✅ LINE 寄件收據已發送');
+
+        // 記錄通知
+        await supabaseClient.from('line_notifications').insert({
+          line_user_id: binding.line_user_id,
+          phone: shipment.sender_phone,
+          notification_type: 'shipment_receipt',
+          shipment_id: shipment.id,
+          tracking_no: shipment.tracking_no,
+          message_content: `寄件收據 - ${shipment.tracking_no}`,
+          flex_message: receiptMessage,
+          status: 'sent'
+        });
+
+        return true;
+
+      } catch (error) {
+        console.error('❌ 發送 LINE 寄件收據時發生錯誤：', error);
+        // 不阻擋寄件流程
+        return false;
+      }
+    }
+
+    // 列印寄件單
+    function printShipmentLabel() {
+      if (!createdShipment) {
+        alert('沒有可列印的寄件單');
+        return;
+      }
+
+      const printContent = generatePrintContent(createdShipment);
+      const printWindow = window.open('', '_blank', 'width=400,height=600');
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      
+      setTimeout(() => {
+        printWindow.print();
+      }, 500);
+
+      console.log('🖨️ 開始列印寄件單');
+    }
+
+    // 生成列印內容（複製自 index.html 的邏輯）
+    function generatePrintContent(shipment) {
+      const companyName = CONFIG.UI.PRINT.COMPANY.NAME;
+      const companyAddress = CONFIG.UI.PRINT.COMPANY.ADDRESS;
+      const companyPhone = CONFIG.UI.PRINT.COMPANY.PHONE;
+      
+      return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>寄件單 - ${shipment.tracking_no}</title>
+          <style>
+            @page {
+              size: 88mm 140mm;
+              margin: 0;
+            }
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            body {
+              font-family: "Arial", "Microsoft JhengHei", sans-serif;
+              color: #000;
+              background: #fff;
+            }
+            .label {
+              width: 88mm;
+              height: 140mm;
+              padding: 2mm;
+              border: 2px solid #000;
+            }
+            
+            .header {
+              text-align: center;
+              font-size: 11pt;
+              font-weight: bold;
+              padding: 1.5mm 0;
+              border-bottom: 1px solid #000;
+            }
+            
+            .info-box {
+              border: 1px solid #000;
+              margin: 1.5mm 0;
+              font-size: 7pt;
+              line-height: 1.3;
+            }
+            .info-title {
+              background: #000;
+              color: #fff;
+              padding: 1mm 2mm;
+              font-weight: bold;
+            }
+            .info-content {
+              padding: 1.5mm 2mm;
+            }
+            
+            .main-section {
+              border: 1px solid #000;
+              margin: 1.5mm 0;
+              text-align: center;
+            }
+            .main-content {
+              display: flex;
+              padding: 2mm;
+              min-height: 35mm;
+            }
+            .left-part {
+              flex: 1;
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+              align-items: center;
+            }
+            .tracking-no {
+              font-size: 16pt;
+              font-weight: bold;
+              margin: 3mm 0 2mm 0;
+              letter-spacing: 1px;
+            }
+            .qr-box {
+              width: 28mm;
+              height: 28mm;
+              border: 1px solid #000;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              flex-shrink: 0;
+            }
+            
+            .pickup-section {
+              border: 1px solid #000;
+              margin: 1.5mm 0;
+            }
+            .pickup-title {
+              background: #000;
+              color: #fff;
+              text-align: center;
+              padding: 2mm;
+              font-size: 12pt;
+              font-weight: bold;
+            }
+            .pickup-body {
+              display: flex;
+              min-height: 25mm;
+            }
+            .pickup-left {
+              width: 35%;
+              border-right: 1px solid #000;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 8pt;
+              padding: 2mm;
+              text-align: center;
+            }
+            .pickup-right {
+              flex: 1;
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+              align-items: center;
+              padding: 2mm;
+            }
+            .addr {
+              font-size: 9pt;
+              margin-bottom: 1mm;
+            }
+            .name {
+              font-size: 18pt;
+              font-weight: bold;
+              margin: 1mm 0;
+            }
+            .code {
+              font-size: 32pt;
+              font-weight: bold;
+              font-family: "Consolas", monospace;
+            }
+            
+            .barcode-section {
+              border: 1px solid #000;
+              text-align: center;
+              padding: 2mm;
+              margin: 1.5mm 0;
+              overflow: hidden;
+            }
+            .barcode {
+              margin: 1mm 0;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+            }
+            .barcode svg {
+              max-width: 100%;
+              height: auto;
+            }
+            .barcode-text {
+              font-size: 7pt;
+              letter-spacing: 0.5px;
+              margin-top: 0.5mm;
+            }
+            
+            .footer {
+              text-align: center;
+              font-size: 8pt;
+              color: #0066ff;
+              margin-top: 1mm;
+            }
+
+            .cod-badge {
+              background: #ff3b30;
+              color: white;
+              padding: 2mm;
+              font-size: 14pt;
+              font-weight: bold;
+              margin: 1mm 0;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="label">
+            <div class="header">${companyName} 寄件單</div>
+
+            <!-- 寄件資訊 -->
+            <div class="info-box">
+              <div class="info-title">寄件資訊</div>
+              <div class="info-content">
+                寄件人：${shipment.sender_name}<br>
+                電話：${shipment.sender_phone}<br>
+                地址：${shipment.sender_address}<br>
+                貨物：${shipment.item_name} × ${shipment.quantity}<br>
+                ${shipment.cod_amount && shipment.cod_amount > 0 ? `代收：$${shipment.cod_amount}<br>` : ''}列印：${new Date().toLocaleString('zh-TW')}
+              </div>
+            </div>
+
+            <!-- 主要物流區 -->
+            <div class="main-section">
+              <div class="main-content">
+                <div class="left-part">
+                  <div class="tracking-no">${shipment.tracking_no}</div>
+                  <div class="short-no">${shipment.weight ? (shipment.weight + 'kg') : '待測'}</div>
+                </div>
+                <div class="qr-box">
+                  <div id="qrcode"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 取件區 -->
+            <div class="pickup-section">
+              <div class="pickup-title">取　件</div>
+              <div class="pickup-body">
+                <div class="pickup-left">請核對<br>末三碼</div>
+                <div class="pickup-right">
+                  <div class="addr">${shipment.receiver_address}</div>
+                  <div class="name">${shipment.receiver_name}</div>
+                  <div class="code">${shipment.receiver_phone.slice(-3)}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 取件專用條碼 -->
+            <div class="barcode-section">
+              <div class="barcode" id="barcode"></div>
+              <div class="barcode-text">${shipment.tracking_no}</div>
+            </div>
+
+            ${shipment.verification_code ? `
+            <!-- 需要驗證碼提示 -->
+            <div style="border: 2px solid #ff9500; border-radius: 2mm; padding: 3mm; margin: 1.5mm 0; background: #fff8e6; text-align: center;">
+              <div style="font-size: 9pt; font-weight: bold; color: #ff9500; margin-bottom: 1mm;">⚠️ 取件需要驗證碼</div>
+              <div style="font-size: 8pt; color: #666; line-height: 1.4;">
+                此包裹取件時需要輸入驗證碼<br>
+                驗證碼已透過簡訊/通知傳送給收件人
+              </div>
+            </div>
+            ` : ''}
+
+            <div class="footer">${companyPhone}</div>
+          </div>
+
+          <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+          <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
+          <script>
+            // 生成 QR Code 和條碼
+            window.onload = function() {
+              // 生成 QR Code
+              var qrcode = new QRCode(document.getElementById("qrcode"), {
+                text: "${shipment.tracking_no}",
+                width: 90,
+                height: 90,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.M
+              });
+              
+              // 生成條碼
+              var barcodeElement = document.getElementById("barcode");
+              var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+              barcodeElement.appendChild(svg);
+              
+              JsBarcode(svg, "${shipment.tracking_no}", {
+                format: "CODE128",
+                width: 1.2,
+                height: 35,
+                displayValue: false,
+                margin: 2
+              });
+              
+              // 等待生成後再列印
+              setTimeout(function() {
+                window.print();
+              }, 600);
+            };
+          <\/script>
+        </body>
+        </html>
+      `;
+    }
+
+    // 生成寄件單號
+    function generateTrackingNumber() {
+      const date = new Date();
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const random = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+      return `${year}${month}${day}-${random}`;
+    }
+
+    // 生成驗證碼（6位數字）
+    function generateVerificationCode() {
+      return Math.floor(100000 + Math.random() * 900000).toString();
+    }
+
+    // 下一步
+    function nextStep() {
+      if (currentStep >= 5) return;
+      
+      // 移除當前步驟的 active
+      document.getElementById(`screen${currentStep}`).classList.remove('active');
+      
+      // 只有步驟 1-4 有步驟指示器
+      const stepItem = document.getElementById(`stepItem${currentStep}`);
+      if (stepItem) {
+        stepItem.classList.remove('active');
+        stepItem.classList.add('completed');
+      }
+      
+      // 進入下一步
+      currentStep++;
+      document.getElementById(`screen${currentStep}`).classList.add('active');
+      
+      // 只有步驟 1-4 有步驟指示器
+      const nextStepItem = document.getElementById(`stepItem${currentStep}`);
+      if (nextStepItem) {
+        nextStepItem.classList.add('active');
+      }
+      
+      // 捲動到頂部
+      window.scrollTo(0, 0);
+    }
+
+    // 上一步
+    function previousStep() {
+      if (currentStep <= 1) return;
+      
+      // 移除當前步驟的 active
+      document.getElementById(`screen${currentStep}`).classList.remove('active');
+      document.getElementById(`stepItem${currentStep}`).classList.remove('active');
+      
+      // 返回上一步
+      currentStep--;
+      document.getElementById(`screen${currentStep}`).classList.add('active');
+      document.getElementById(`stepItem${currentStep}`).classList.remove('completed');
+      document.getElementById(`stepItem${currentStep}`).classList.add('active');
+      
+      // 捲動到頂部
+      window.scrollTo(0, 0);
+    }
+
+    // 重置 Kiosk
+    function resetKiosk() {
+      if (currentStep > 1 && currentStep < 5) {
+        if (!confirm('確定要取消並重新開始嗎？')) {
+          return;
+        }
+      }
+
+      // 重置所有變數
+      currentStep = 1;
+      shipmentData = {
+        sender: {},
+        receiver: {},
+        package: {},
+        payment: {}
+      };
+      createdShipment = null;
+
+      // 重置所有表單
+      document.getElementById('step1Form').reset();
+      document.getElementById('step2Form').reset();
+      document.getElementById('step3Form').reset();
+
+      // 重置步驟指示器
+      for (let i = 1; i <= 5; i++) {
+        document.getElementById(`screen${i}`).classList.remove('active');
+        document.getElementById(`stepItem${i}`).classList.remove('active', 'completed');
+      }
+
+      // 顯示第一步
+      document.getElementById('screen1').classList.add('active');
+      document.getElementById('stepItem1').classList.add('active');
+
+      // 清除所有訊息
+      ['screen1Message', 'screen2Message', 'screen3Message', 'screen4Message'].forEach(id => {
+        document.getElementById(id).innerHTML = '';
+      });
+
+      // 捲動到頂部
+      window.scrollTo(0, 0);
+
+      console.log('🔄 系統已重置');
+    }
+
+    // 記錄 Kiosk 操作
+    async function logKioskAction(action, trackingNo) {
+      try {
+        // 嘗試記錄日誌，但不影響主流程
+        await supabaseClient
+          .from('kiosk_logs')
+          .insert({
+            action,
+            tracking_no: trackingNo,
+            device_id: navigator.userAgent,
+            details: {
+              timestamp: new Date().toISOString(),
+              screen_resolution: `${window.screen.width}x${window.screen.height}`,
+              user_agent: navigator.userAgent
+            }
+          });
+        console.log('✅ 日誌已記錄：', action);
+      } catch (error) {
+        // 日誌記錄失敗不影響主功能
+        console.warn('⚠️ 記錄日誌失敗（不影響功能）：', error.message);
+      }
+    }
+
+    // 顯示訊息
+    function showMessage(text, type, targetId) {
+      const target = document.getElementById(targetId);
+      target.innerHTML = `
+        <div class="message ${type}">
+          <span>${type === 'error' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ️'}</span>
+          <span>${text}</span>
+        </div>
+      `;
+      
+      setTimeout(() => {
+        target.innerHTML = '';
+      }, 5000);
+    }
+
+    // 顯示 Loading
+    function showLoading(targetId) {
+      const target = document.getElementById(targetId);
+      target.innerHTML = `
+        <div class="loading">
+          <div class="spinner"></div>
+          <div>處理中...</div>
+        </div>
+      `;
+    }
+
+    // 隱藏 Loading
+    function hideLoading(targetId) {
+      const target = document.getElementById(targetId);
+      target.innerHTML = '';
+    }
+
+    // 初始化
+    init();
+  </script>
+</body>
+</html>
+

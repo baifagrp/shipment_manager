@@ -76,6 +76,9 @@ const CONFIG = {
     // LIFF App ID（將從資料庫載入）
     LIFF_ID: '',  // 預設空值，由 config-loader.js 填入
     
+    // LINE 官方帳號連結（將從資料庫載入）
+    OA_URL: 'https://line.me/R/ti/p/@YOUR_LINE_ID',  // 預設值，由 config-loader.js 更新
+    
     // LINE Messaging API Channel Access Token
     // ⚠️ 此設定已完全移至 Supabase，只在後端函數中使用
     // 前端不再需要也不應該存取此 Token

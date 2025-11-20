@@ -17,7 +17,8 @@ async function loadLineSettings() {
       .select('setting_key, setting_value')
       .in('setting_key', [
         'LINE_LOGIN_CHANNEL_ID',
-        'LINE_LIFF_ID'
+        'LINE_LIFF_ID',
+        'LINE_OA_URL'
       ]);
     
     if (error) {
@@ -56,10 +57,14 @@ async function initLineConfig() {
       if (settings.LINE_LIFF_ID) {
         CONFIG.LINE.LIFF_ID = settings.LINE_LIFF_ID;
       }
+      if (settings.LINE_OA_URL) {
+        CONFIG.LINE.OA_URL = settings.LINE_OA_URL;
+      }
       
       console.log('✅ LINE 設定已更新');
       console.log('  - LOGIN_CHANNEL_ID:', CONFIG.LINE.LOGIN_CHANNEL_ID);
       console.log('  - LIFF_ID:', CONFIG.LINE.LIFF_ID);
+      console.log('  - OA_URL:', CONFIG.LINE.OA_URL);
     }
     
   } catch (error) {

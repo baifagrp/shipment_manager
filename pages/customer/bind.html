@@ -320,6 +320,42 @@
       margin-right: 8px;
     }
 
+    .contact-note {
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      border: 1px solid #dee2e6;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-top: 24px;
+      text-align: center;
+    }
+
+    .contact-note p {
+      margin: 0;
+      font-size: 14px;
+      color: #495057;
+      line-height: 1.6;
+    }
+
+    .contact-link {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+      transition: all 0.2s;
+      display: inline-block;
+    }
+
+    .contact-link:hover {
+      background: rgba(10, 132, 255, 0.1);
+      color: #0066cc;
+      transform: translateY(-1px);
+    }
+
+    .contact-link:active {
+      transform: translateY(0);
+    }
+
     .hidden {
       display: none;
     }
@@ -492,6 +528,10 @@
           <li>包裹到店的提醒通知</li>
           <li>取件完成的收據通知</li>
         </ul>
+      </div>
+
+      <div class="contact-note">
+        <p>📝 綁定成功後如需更動資料，請<a href="mailto:baifa.group24@gmail.com" class="contact-link">聯絡我們</a></p>
       </div>
     </div>
   </div>

@@ -106,7 +106,7 @@ const CONFIG = {
     // LIFF 頁面對應
     LIFF_PAGES: {
       SEARCH: '/pages/customer/shpsearch.html',  // 查詢包裹
-      BIND: '/pages/customer/line-bind.html',     // 綁定會員
+      BIND: '/pages/customer/bind.html',          // 通知綁定管理（統一頁面）
       CHECKIN: '/pages/customer/checkin.html'    // 自助報到
     }
   },

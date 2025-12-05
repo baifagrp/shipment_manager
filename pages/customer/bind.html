@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>通知綁定 - LINE & Email</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+  <script src="../../config.js"></script>
+  <script src="../../config-loader.js"></script>
+  <script src="../../email-notify-helper.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #0a84ff;
+      --success: #28c76f;
+      --danger: #ff3b30;
+      --warning: #ff9500;
+      --muted: #6b7280;
+      --bg: #f5f7fa;
+      --card-bg: #ffffff;
+      --border: #e5e7eb;
+      --line-green: #00B900;
+    }
+
+    body {
+      font-family: "Microsoft JhengHei", "Noto Sans TC", -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      max-width: 600px;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 40px 32px;
+      text-align: center;
+    }
+
+    .header-icon {
+      font-size: 64px;
+      margin-bottom: 16px;
+    }
+
+    .header-title {
+      font-size: 28px;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    .header-subtitle {
+      font-size: 16px;
+      opacity: 0.9;
+    }
+
+    .body {
+      padding: 40px 32px;
+    }
+
+    .message {
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+      font-weight: 500;
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .message.show {
+      display: flex;
+    }
+
+    .message.success {
+      background: #d1fae5;
+      color: #065f46;
+      border: 1px solid #10b981;
+    }
+
+    .message.error {
+      background: #ffe4e6;
+      color: #9f1239;
+      border: 1px solid #f43f5e;
+    }
+
+    .message.info {
+      background: #dbeafe;
+      color: #1e40af;
+      border: 1px solid #3b82f6;
+    }
+
+    /* 綁定卡片 */
+    .bind-card {
+      background: var(--bg);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 24px;
+      border: 2px solid var(--border);
+    }
+
+    .bind-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .bind-card-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 20px;
+      font-weight: 600;
+      color: #1f2937;
+    }
+
+    .bind-card-icon {
+      font-size: 32px;
+    }
+
+    .bind-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .bind-status.bound {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .bind-status.unbound {
+      background: #f3f4f6;
+      color: #6b7280;
+    }
+
+    .bind-info {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .bind-info-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .bind-info-row:last-child {
+      border-bottom: none;
+    }
+
+    .bind-info-label {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .bind-info-value {
+      color: #1f2937;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #374151;
+      font-size: 14px;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 12px 16px;
+      font-size: 16px;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.1);
+    }
+
+    .form-input:disabled {
+      background: #f9fafb;
+      cursor: not-allowed;
+    }
+
+    .form-hint {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px 24px;
+      font-size: 16px;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #0066cc;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(10, 132, 255, 0.3);
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: white;
+    }
+
+    .btn-success:hover:not(:disabled) {
+      background: #22a55e;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(40, 199, 111, 0.3);
+    }
+
+    .btn-line {
+      background: var(--line-green);
+      color: white;
+    }
+
+    .btn-line:hover:not(:disabled) {
+      background: #00a000;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 185, 0, 0.3);
+    }
+
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .info-box {
+      background: #f9fafb;
+      border-left: 4px solid var(--primary);
+      padding: 16px;
+      border-radius: 8px;
+      margin-top: 24px;
+    }
+
+    .info-title {
+      font-weight: 600;
+      color: #1f2937;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .info-list {
+      list-style: none;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.8;
+    }
+
+    .info-list li::before {
+      content: "✓ ";
+      color: var(--success);
+      font-weight: bold;
+      margin-right: 8px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .user-profile {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: white;
+      padding: 12px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+    }
+
+    .user-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+
+    .user-details {
+      flex: 1;
+    }
+
+    .user-name {
+      font-weight: 600;
+      color: #1f2937;
+      margin-bottom: 4px;
+    }
+
+    .user-phone {
+      font-size: 14px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="header-icon">🔔</div>
+      <h1 class="header-title">通知綁定管理</h1>
+      <p class="header-subtitle">設定您的 LINE 與 Email 通知</p>
+    </div>
+
+    <div class="body">
+      <div id="message" class="message"></div>
+
+      <!-- LINE 綁定卡片 -->
+      <div class="bind-card">
+        <div class="bind-card-header">
+          <div class="bind-card-title">
+            <span class="bind-card-icon">💬</span>
+            <span>LINE 通知</span>
+          </div>
+          <div id="lineStatus" class="bind-status unbound">
+            <span>●</span>
+            <span>未綁定</span>
+          </div>
+        </div>
+
+        <div id="lineBindInfo" class="bind-info hidden">
+          <div id="lineProfile" class="user-profile hidden"></div>
+          <div class="bind-info-row">
+            <span class="bind-info-label">手機號碼</span>
+            <span id="linePhone" class="bind-info-value">-</span>
+          </div>
+          <div class="bind-info-row">
+            <span class="bind-info-label">綁定時間</span>
+            <span id="lineBindTime" class="bind-info-value">-</span>
+          </div>
+        </div>
+
+        <div id="lineBindForm">
+          <div class="form-group">
+            <label class="form-label" for="linePhone">手機號碼</label>
+            <input 
+              type="tel" 
+              id="linePhoneInput" 
+              class="form-input" 
+              placeholder="0912345678"
+              required
+              pattern="[0-9]{10}"
+            >
+            <p class="form-hint">請輸入您的手機號碼（10 碼）</p>
+          </div>
+
+          <button type="button" id="lineBindBtn" class="btn btn-line">
+            <span id="lineBindBtnText">💬 綁定 LINE 通知</span>
+            <div id="lineBindLoading" class="loading hidden"></div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Email 綁定卡片 -->
+      <div class="bind-card">
+        <div class="bind-card-header">
+          <div class="bind-card-title">
+            <span class="bind-card-icon">📧</span>
+            <span>Email 通知</span>
+          </div>
+          <div id="emailStatus" class="bind-status unbound">
+            <span>●</span>
+            <span>未綁定</span>
+          </div>
+        </div>
+
+        <div id="emailBindInfo" class="bind-info hidden">
+          <div class="bind-info-row">
+            <span class="bind-info-label">手機號碼</span>
+            <span id="emailPhone" class="bind-info-value">-</span>
+          </div>
+          <div class="bind-info-row">
+            <span class="bind-info-label">Email 地址</span>
+            <span id="emailAddress" class="bind-info-value">-</span>
+          </div>
+          <div class="bind-info-row">
+            <span class="bind-info-label">綁定時間</span>
+            <span id="emailBindTime" class="bind-info-value">-</span>
+          </div>
+        </div>
+
+        <div id="emailBindForm">
+          <div class="form-group">
+            <label class="form-label" for="emailPhoneInput">手機號碼</label>
+            <input 
+              type="tel" 
+              id="emailPhoneInput" 
+              class="form-input" 
+              placeholder="0912345678"
+              required
+              pattern="[0-9]{10}"
+            >
+            <p class="form-hint">請輸入您的手機號碼（10 碼）</p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="emailInput">Email 地址</label>
+            <input 
+              type="email" 
+              id="emailInput" 
+              class="form-input" 
+              placeholder="example@gmail.com"
+              required
+            >
+            <p class="form-hint">請輸入您的常用 Email</p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="nameInput">姓名（選填）</label>
+            <input 
+              type="text" 
+              id="nameInput" 
+              class="form-input" 
+              placeholder="王小明"
+            >
+          </div>
+
+          <button type="button" id="emailBindBtn" class="btn btn-primary">
+            <span id="emailBindBtnText">📧 綁定 Email 通知</span>
+            <div id="emailBindLoading" class="loading hidden"></div>
+          </button>
+        </div>
+      </div>
+
+      <div class="info-box">
+        <p class="info-title">💡 綁定後您將收到：</p>
+        <ul class="info-list">
+          <li>寄件成功的確認通知</li>
+          <li>包裹到店的提醒通知</li>
+          <li>取件完成的收據通知</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let supabaseClient;
+    let liffReady = false;
+    let lineUserId = null;
+    let currentPhone = null;
+
+    // 初始化
+    async function init() {
+      // 初始化 Supabase
+      supabaseClient = supabase.createClient(
+        CONFIG.SUPABASE.URL,
+        CONFIG.SUPABASE.ANON_KEY
+      );
+
+      // 載入 LINE 設定
+      await initLineConfig();
+
+      // 初始化 LIFF（如果在 LINE 環境中）
+      await initLiff();
+
+      // 設定事件監聽器
+      document.getElementById('lineBindBtn').addEventListener('click', handleLineBind);
+      document.getElementById('emailBindBtn').addEventListener('click', handleEmailBind);
+
+      console.log('✅ 統一綁定頁面已載入');
+    }
+
+    // 初始化 LIFF
+    async function initLiff() {
+      try {
+        if (!CONFIG.LINE.LIFF_ID) {
+          console.log('ℹ️ LINE LIFF ID 未設定，跳過 LIFF 初始化');
+          return;
+        }
+
+        console.log('🔄 初始化 LIFF...');
+        await liff.init({ liffId: CONFIG.LINE.LIFF_ID });
+        liffReady = true;
+
+        if (liff.isLoggedIn()) {
+          const profile = await liff.getProfile();
+          lineUserId = profile.userId;
+          
+          // 自動填入手機號碼（如果已綁定）
+          await autoFillPhoneFromLine(lineUserId);
+          
+          console.log('✅ LIFF 已登入:', profile.displayName);
+        } else {
+          console.log('ℹ️ LIFF 未登入');
+        }
+      } catch (error) {
+        console.warn('⚠️ LIFF 初始化失敗（非 LINE 環境）:', error);
+      }
+    }
+
+    // 自動填入手機號碼
+    async function autoFillPhoneFromLine(lineUserId) {
+      try {
+        const { data } = await supabaseClient
+          .from('customer_contacts')
+          .select('phone, name, email, line_display_name, line_bound_at, created_at')
+          .eq('line_user_id', lineUserId)
+          .maybeSingle();
+
+        if (data) {
+          currentPhone = data.phone;
+          document.getElementById('linePhoneInput').value = data.phone;
+          document.getElementById('linePhoneInput').disabled = true;
+          document.getElementById('emailPhoneInput').value = data.phone;
+          
+          // 顯示 LINE 綁定狀態
+          updateLineStatus(true, data);
+          
+          // 如果有 Email，也顯示
+          if (data.email) {
+            updateEmailStatus(true, data);
+          }
+        }
+      } catch (error) {
+        console.error('❌ 查詢綁定資料失敗:', error);
+      }
+    }
+
+    // 更新 LINE 狀態
+    function updateLineStatus(bound, data = null) {
+      const status = document.getElementById('lineStatus');
+      const info = document.getElementById('lineBindInfo');
+      const form = document.getElementById('lineBindForm');
+
+      if (bound && data) {
+        status.className = 'bind-status bound';
+        status.innerHTML = '<span>●</span><span>已綁定</span>';
+        
+        document.getElementById('linePhone').textContent = data.phone;
+        document.getElementById('lineBindTime').textContent = 
+          new Date(data.line_bound_at || data.created_at).toLocaleString('zh-TW');
+        
+        // 顯示用戶資料（如果有）
+        if (data.line_display_name) {
+          const profile = document.getElementById('lineProfile');
+          profile.innerHTML = `
+            ${data.line_picture_url ? `<img src="${data.line_picture_url}" class="user-avatar" />` : ''}
+            <div class="user-details">
+              <div class="user-name">${data.line_display_name}</div>
+              <div class="user-phone">${data.phone}</div>
+            </div>
+          `;
+          profile.classList.remove('hidden');
+        }
+        
+        info.classList.remove('hidden');
+        form.classList.add('hidden');
+        
+        document.getElementById('lineBindBtnText').textContent = '✅ 已綁定 LINE';
+      } else {
+        status.className = 'bind-status unbound';
+        status.innerHTML = '<span>●</span><span>未綁定</span>';
+        info.classList.add('hidden');
+        form.classList.remove('hidden');
+      }
+    }
+
+    // 更新 Email 狀態
+    function updateEmailStatus(bound, data = null) {
+      const status = document.getElementById('emailStatus');
+      const info = document.getElementById('emailBindInfo');
+      const form = document.getElementById('emailBindForm');
+
+      if (bound && data && data.email) {
+        status.className = 'bind-status bound';
+        status.innerHTML = '<span>●</span><span>已綁定</span>';
+        
+        document.getElementById('emailPhone').textContent = data.phone;
+        document.getElementById('emailAddress').textContent = data.email;
+        document.getElementById('emailBindTime').textContent = 
+          new Date(data.created_at).toLocaleString('zh-TW');
+        
+        info.classList.remove('hidden');
+        form.classList.add('hidden');
+        
+        document.getElementById('emailBindBtnText').textContent = '✅ 已綁定 Email';
+      } else {
+        status.className = 'bind-status unbound';
+        status.innerHTML = '<span>●</span><span>未綁定</span>';
+        info.classList.add('hidden');
+        form.classList.remove('hidden');
+      }
+    }
+
+    // 處理 LINE 綁定
+    async function handleLineBind() {
+      if (!liffReady || !lineUserId) {
+        showMessage('請在 LINE 應用程式中開啟此頁面', 'error');
+        return;
+      }
+
+      const phone = document.getElementById('linePhoneInput').value.trim();
+
+      if (!/^[0-9]{10}$/.test(phone)) {
+        showMessage('請輸入正確的手機號碼（10 碼數字）', 'error');
+        return;
+      }
+
+      setLoading('line', true);
+
+      try {
+        const profile = await liff.getProfile();
+
+        // 檢查是否已存在
+        const { data: existing } = await supabaseClient
+          .from('customer_contacts')
+          .select('*')
+          .eq('phone', phone)
+          .maybeSingle();
+
+        if (existing) {
+          // 更新現有資料
+          const { error } = await supabaseClient
+            .from('customer_contacts')
+            .update({
+              line_user_id: lineUserId,
+              line_display_name: profile.displayName,
+              line_picture_url: profile.pictureUrl || null,
+              line_is_blocked: false,
+              line_bound_at: new Date().toISOString(),
+              notify_by_line: true,
+              updated_at: new Date().toISOString()
+            })
+            .eq('phone', phone);
+
+          if (error) throw error;
+          
+          showMessage('✅ LINE 已更新！', 'success');
+          updateLineStatus(true, {
+            phone,
+            line_display_name: profile.displayName,
+            line_picture_url: profile.pictureUrl,
+            line_bound_at: new Date().toISOString(),
+            email: existing.email
+          });
+          
+          if (existing.email) {
+            updateEmailStatus(true, existing);
+          }
+        } else {
+          // 新增綁定
+          const { error } = await supabaseClient
+            .from('customer_contacts')
+            .insert([{
+              phone: phone,
+              line_user_id: lineUserId,
+              line_display_name: profile.displayName,
+              line_picture_url: profile.pictureUrl || null,
+              line_is_blocked: false,
+              line_bound_at: new Date().toISOString(),
+              notify_by_line: true,
+              notify_by_email: true
+            }]);
+
+          if (error) throw error;
+          
+          showMessage('✅ LINE 綁定成功！', 'success');
+          updateLineStatus(true, {
+            phone,
+            line_display_name: profile.displayName,
+            line_picture_url: profile.pictureUrl,
+            line_bound_at: new Date().toISOString()
+          });
+        }
+
+        currentPhone = phone;
+        document.getElementById('emailPhoneInput').value = phone;
+
+      } catch (error) {
+        console.error('❌ LINE 綁定失敗:', error);
+        showMessage('綁定失敗：' + error.message, 'error');
+      } finally {
+        setLoading('line', false);
+      }
+    }
+
+    // 處理 Email 綁定
+    async function handleEmailBind() {
+      const phone = document.getElementById('emailPhoneInput').value.trim();
+      const email = document.getElementById('emailInput').value.trim();
+      const name = document.getElementById('nameInput').value.trim() || null;
+
+      if (!/^[0-9]{10}$/.test(phone)) {
+        showMessage('請輸入正確的手機號碼（10 碼數字）', 'error');
+        return;
+      }
+
+      if (!EmailNotify.validateEmail(email)) {
+        showMessage('請輸入正確的 Email 格式', 'error');
+        return;
+      }
+
+      setLoading('email', true);
+
+      try {
+        // 檢查是否已存在
+        const { data: existing } = await supabaseClient
+          .from('customer_contacts')
+          .select('*')
+          .eq('phone', phone)
+          .maybeSingle();
+
+        if (existing) {
+          // 更新現有資料
+          const { error } = await supabaseClient
+            .from('customer_contacts')
+            .update({
+              email: email,
+              name: name || existing.name,
+              email_verified: false,
+              notify_by_email: true,
+              updated_at: new Date().toISOString()
+            })
+            .eq('phone', phone);
+
+          if (error) throw error;
+          
+          showMessage('✅ Email 已更新！', 'success');
+          updateEmailStatus(true, {
+            phone,
+            email,
+            name: name || existing.name,
+            created_at: existing.created_at
+          });
+          
+          if (existing.line_user_id) {
+            updateLineStatus(true, existing);
+          }
+        } else {
+          // 新增綁定
+          const { error } = await supabaseClient
+            .from('customer_contacts')
+            .insert([{
+              phone: phone,
+              email: email,
+              name: name,
+              email_verified: false,
+              notify_by_email: true,
+              notify_by_line: true
+            }]);
+
+          if (error) throw error;
+          
+          showMessage('✅ Email 綁定成功！', 'success');
+          updateEmailStatus(true, {
+            phone,
+            email,
+            name,
+            created_at: new Date().toISOString()
+          });
+        }
+
+        // 清空表單
+        document.getElementById('emailInput').value = '';
+        document.getElementById('nameInput').value = '';
+
+      } catch (error) {
+        console.error('❌ Email 綁定失敗:', error);
+        showMessage('綁定失敗：' + error.message, 'error');
+      } finally {
+        setLoading('email', false);
+      }
+    }
+
+    // 顯示訊息
+    function showMessage(text, type = 'info') {
+      const messageEl = document.getElementById('message');
+      const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
+      messageEl.innerHTML = `<span>${icon}</span><span>${text}</span>`;
+      messageEl.className = `message ${type} show`;
+      
+      if (type !== 'error') {
+        setTimeout(() => {
+          messageEl.classList.remove('show');
+        }, 5000);
+      }
+    }
+
+    // 設定載入狀態
+    function setLoading(type, loading) {
+      if (type === 'line') {
+        const btn = document.getElementById('lineBindBtn');
+        const text = document.getElementById('lineBindBtnText');
+        const loadingEl = document.getElementById('lineBindLoading');
+        
+        btn.disabled = loading;
+        text.style.display = loading ? 'none' : 'inline';
+        loadingEl.classList.toggle('hidden', !loading);
+      } else if (type === 'email') {
+        const btn = document.getElementById('emailBindBtn');
+        const text = document.getElementById('emailBindBtnText');
+        const loadingEl = document.getElementById('emailBindLoading');
+        
+        btn.disabled = loading;
+        text.style.display = loading ? 'none' : 'inline';
+        loadingEl.classList.toggle('hidden', !loading);
+      }
+    }
+
+    // 頁面載入時初始化
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
+

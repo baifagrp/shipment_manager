@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>取件結帳 - POS 系統</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <script src="../../config.js"></script>
+  <script src="../../email-notify-helper.js"></script>
   <style>
     * {
       margin: 0;
@@ -984,6 +986,9 @@
         // 發送 LINE 收據給顧客
         await sendLineReceipt(transaction);
 
+        // 📧 發送 Email 收據給顧客
+        await sendEmailReceipt(transaction);
+
         // 顯示成功訊息
         showMessage('✅ 取件結帳成功！已上傳至 Supabase 並列印收據。', 'success');
 
@@ -1401,6 +1406,50 @@
       } catch (error) {
         console.error('❌ 發送 LINE 收據時發生錯誤：', error);
         // 不阻擋結帳流程
+        return false;
+      }
+    }
+
+    // 📧 發送 Email 取件收據給顧客
+    async function sendEmailReceipt(transaction) {
+      try {
+        console.log('📧 準備發送 Email 取件收據給:', transaction.receiver_phone);
+
+        // 檢查 EmailNotify 是否可用
+        if (typeof EmailNotify === 'undefined') {
+          console.warn('⚠️ EmailNotify 模組未載入，跳過發送');
+          return false;
+        }
+
+        // 查詢收件人的 Email
+        const receiverEmail = await EmailNotify.getEmailByPhone(transaction.receiver_phone);
+
+        if (!receiverEmail) {
+          console.log('ℹ️ 收件人尚未綁定 Email，跳過發送');
+          return false;
+        }
+
+        // 發送 Email
+        const result = await EmailNotify.sendPickupSuccessEmail({
+          shipment_id: transaction.shipment_id,
+          tracking_no: transaction.tracking_no,
+          receiver_name: transaction.receiver_name,
+          sender_name: transaction.sender_name,
+          pickup_time: new Date().toISOString(),
+          store_name: CONFIG.STORE.NAME || 'NPHONE-KHJG',
+          transaction_no: transaction.transaction_no
+        }, receiverEmail);
+
+        if (result.success) {
+          console.log('✅ Email 取件收據已發送');
+          return true;
+        } else {
+          console.warn('⚠️ Email 發送失敗（不影響結帳流程）:', result.error);
+          return false;
+        }
+
+      } catch (error) {
+        console.error('❌ 發送 Email 時發生錯誤（不影響結帳流程）:', error);
         return false;
       }
     }

@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Email 通知綁定</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+  <script src="../../config.js"></script>
+  <script src="../../email-notify-helper.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #0a84ff;
+      --success: #28c76f;
+      --danger: #ff3b30;
+      --warning: #ff9500;
+      --muted: #6b7280;
+      --bg: #f5f7fa;
+      --card-bg: #ffffff;
+      --border: #e5e7eb;
+    }
+
+    body {
+      font-family: "Microsoft JhengHei", "Noto Sans TC", -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      max-width: 500px;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 40px 32px;
+      text-align: center;
+    }
+
+    .header-icon {
+      font-size: 64px;
+      margin-bottom: 16px;
+    }
+
+    .header-title {
+      font-size: 28px;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    .header-subtitle {
+      font-size: 16px;
+      opacity: 0.9;
+    }
+
+    .body {
+      padding: 40px 32px;
+    }
+
+    .form-group {
+      margin-bottom: 24px;
+    }
+
+    .form-label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #374151;
+      font-size: 14px;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 12px 16px;
+      font-size: 16px;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.1);
+    }
+
+    .form-hint {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px 24px;
+      font-size: 16px;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #0066cc;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(10, 132, 255, 0.3);
+    }
+
+    .message {
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+      font-weight: 500;
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .message.show {
+      display: flex;
+    }
+
+    .message.success {
+      background: #d1fae5;
+      color: #065f46;
+      border: 1px solid #10b981;
+    }
+
+    .message.error {
+      background: #ffe4e6;
+      color: #9f1239;
+      border: 1px solid #f43f5e;
+    }
+
+    .message.info {
+      background: #dbeafe;
+      color: #1e40af;
+      border: 1px solid #3b82f6;
+    }
+
+    .info-box {
+      background: #f9fafb;
+      border-left: 4px solid var(--primary);
+      padding: 16px;
+      border-radius: 8px;
+      margin-top: 24px;
+    }
+
+    .info-title {
+      font-weight: 600;
+      color: #1f2937;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .info-list {
+      list-style: none;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.8;
+    }
+
+    .info-list li::before {
+      content: "✓ ";
+      color: var(--success);
+      font-weight: bold;
+      margin-right: 8px;
+    }
+
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .back-link {
+      text-align: center;
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    .back-link a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .back-link a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="header-icon">📧</div>
+      <h1 class="header-title">Email 通知綁定</h1>
+      <p class="header-subtitle">接收寄件與取件的 Email 通知</p>
+    </div>
+
+    <div class="body">
+      <div id="message" class="message"></div>
+
+      <form id="bindForm">
+        <div class="form-group">
+          <label class="form-label" for="phone">手機號碼</label>
+          <input 
+            type="tel" 
+            id="phone" 
+            class="form-input" 
+            placeholder="0912345678"
+            required
+            pattern="[0-9]{10}"
+          >
+          <p class="form-hint">請輸入您的手機號碼（10 碼）</p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="email">Email 地址</label>
+          <input 
+            type="email" 
+            id="email" 
+            class="form-input" 
+            placeholder="example@gmail.com"
+            required
+          >
+          <p class="form-hint">請輸入您的常用 Email</p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="name">姓名（選填）</label>
+          <input 
+            type="text" 
+            id="name" 
+            class="form-input" 
+            placeholder="王小明"
+          >
+        </div>
+
+        <button type="submit" id="submitBtn" class="btn btn-primary">
+          <span id="btnText">📧 綁定 Email</span>
+          <div id="btnLoading" class="loading" style="display: none;"></div>
+        </button>
+      </form>
+
+      <div class="info-box">
+        <p class="info-title">💡 綁定後您將收到：</p>
+        <ul class="info-list">
+          <li>寄件成功的確認通知</li>
+          <li>包裹到店的提醒通知</li>
+          <li>取件完成的收據通知</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let supabaseClient;
+
+    // 初始化
+    function init() {
+      // 初始化 Supabase
+      supabaseClient = supabase.createClient(
+        CONFIG.SUPABASE.URL,
+        CONFIG.SUPABASE.ANON_KEY
+      );
+
+      // 表單提交事件
+      document.getElementById('bindForm').addEventListener('submit', handleSubmit);
+
+      console.log('✅ Email 綁定頁面已載入');
+    }
+
+    // 處理表單提交
+    async function handleSubmit(e) {
+      e.preventDefault();
+
+      const phone = document.getElementById('phone').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const name = document.getElementById('name').value.trim() || null;
+
+      // 驗證格式
+      if (!/^[0-9]{10}$/.test(phone)) {
+        showMessage('請輸入正確的手機號碼（10 碼數字）', 'error');
+        return;
+      }
+
+      if (!EmailNotify.validateEmail(email)) {
+        showMessage('請輸入正確的 Email 格式', 'error');
+        return;
+      }
+
+      setLoading(true);
+
+      try {
+        // 檢查是否已綁定
+        const { data: existingBinding, error: checkError } = await supabaseClient
+          .from('email_bindings')
+          .select('*')
+          .eq('phone', phone)
+          .maybeSingle();
+
+        if (checkError) throw checkError;
+
+        if (existingBinding) {
+          // 更新現有綁定
+          const { error: updateError } = await supabaseClient
+            .from('email_bindings')
+            .update({
+              email: email,
+              name: name,
+              updated_at: new Date().toISOString()
+            })
+            .eq('phone', phone);
+
+          if (updateError) throw updateError;
+
+          showMessage('✅ Email 已更新！您將收到相關通知。', 'success');
+        } else {
+          // 新增綁定
+          const { error: insertError } = await supabaseClient
+            .from('email_bindings')
+            .insert([{
+              phone: phone,
+              email: email,
+              name: name,
+              verified: false // 可選：未來可實現驗證功能
+            }]);
+
+          if (insertError) throw insertError;
+
+          showMessage('✅ Email 綁定成功！您將收到寄件與取件的通知。', 'success');
+        }
+
+        // 清空表單
+        document.getElementById('bindForm').reset();
+
+        // 3 秒後返回首頁
+        setTimeout(() => {
+          window.location.href = '../../index.html';
+        }, 3000);
+
+      } catch (error) {
+        console.error('❌ 綁定失敗：', error);
+        showMessage('綁定失敗：' + error.message, 'error');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    // 顯示訊息
+    function showMessage(text, type = 'info') {
+      const messageEl = document.getElementById('message');
+      const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
+      messageEl.innerHTML = `<span>${icon}</span><span>${text}</span>`;
+      messageEl.className = `message ${type} show`;
+      
+      // 自動隱藏（錯誤訊息除外）
+      if (type !== 'error') {
+        setTimeout(() => {
+          messageEl.classList.remove('show');
+        }, 5000);
+      }
+    }
+
+    // 設定載入狀態
+    function setLoading(loading) {
+      const submitBtn = document.getElementById('submitBtn');
+      const btnText = document.getElementById('btnText');
+      const btnLoading = document.getElementById('btnLoading');
+
+      submitBtn.disabled = loading;
+      btnText.style.display = loading ? 'none' : 'inline';
+      btnLoading.style.display = loading ? 'inline-block' : 'none';
+    }
+
+    // 頁面載入時初始化
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
+

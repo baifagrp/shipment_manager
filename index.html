@@ -6,9 +6,11 @@
   <title>貨物管理系統</title>
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <script src="config.js"></script>
   <script src="config-loader.js"></script>
   <script src="line-notify-helper.js"></script>
+  <script src="email-notify-helper.js"></script>
   <style>
     /* -------------------------
        蘋果風格 UI 設計系統
@@ -833,6 +835,11 @@
                   </svg>
                 </span>
                 <span>LINE 通知推播</span>
+              </div>
+
+              <div class="user-menu-item" onclick="navigateTo('pages/customer/email-bind.html')">
+                <span class="user-menu-icon">📧</span>
+                <span>Email 通知綁定</span>
               </div>
 
                <div class="user-menu-item" onclick="navigateTo('pages/customer/send-kiosk.html')">

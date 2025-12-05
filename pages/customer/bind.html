@@ -556,7 +556,7 @@
       try {
         const { data } = await supabaseClient
           .from('customer_contacts')
-          .select('phone, name, email, line_display_name, line_bound_at, created_at')
+          .select('phone, name, email, line_display_name, line_picture_url, line_bound_at, notify_by_line, notify_by_email, created_at')
           .eq('line_user_id', lineUserId)
           .maybeSingle();
 
@@ -585,7 +585,8 @@
       const info = document.getElementById('lineBindInfo');
       const form = document.getElementById('lineBindForm');
 
-      if (bound && data && data.line_user_id) {
+      // 只要 notify_by_line 為 true，就視為已綁定（無論是否有 line_user_id）
+      if (bound && data && data.notify_by_line) {
         status.className = 'bind-status bound';
         status.innerHTML = '<span>●</span><span>已綁定</span>';
         
@@ -593,7 +594,7 @@
         document.getElementById('lineBindTime').textContent = 
           new Date(data.line_bound_at || data.created_at).toLocaleString('zh-TW');
         
-        // 顯示用戶資料
+        // 顯示用戶資料（僅在有 LINE 資料時）
         if (data.line_display_name) {
           const profile = document.getElementById('lineProfile');
           profile.innerHTML = `
@@ -692,10 +693,6 @@
           if (error) throw error;
           
           showMessage('✅ LINE 通知已啟用！', 'success');
-          
-          if (existing.email) {
-            updateEmailStatus(true, existing);
-          }
         } else {
           // 新增綁定
           const insertData = liffReady && lineUserId
@@ -711,11 +708,30 @@
           showMessage('✅ LINE 通知綁定成功！', 'success');
         }
 
+        // 重新查詢最新綁定資料以更新 UI
+        const { data: updatedData } = await supabaseClient
+          .from('customer_contacts')
+          .select('*')
+          .eq('phone', phone)
+          .maybeSingle();
+
+        if (updatedData) {
+          // 更新 LINE 狀態顯示
+          updateLineStatus(true, updatedData);
+          
+          // 如果有 Email，也更新 Email 狀態
+          if (updatedData.email) {
+            updateEmailStatus(true, updatedData);
+          }
+          
+          // 禁用手機號碼輸入框（已綁定）
+          if (liffReady && lineUserId) {
+            document.getElementById('linePhoneInput').disabled = true;
+          }
+        }
+
         currentPhone = phone;
         document.getElementById('emailPhoneInput').value = phone;
-        
-        // 清空表單
-        document.getElementById('linePhoneInput').value = '';
 
       } catch (error) {
         console.error('❌ LINE 綁定失敗:', error);

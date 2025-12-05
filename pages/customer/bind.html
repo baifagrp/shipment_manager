@@ -31,7 +31,7 @@
 
     body {
       font-family: "Microsoft JhengHei", "Noto Sans TC", -apple-system, BlinkMacSystemFont, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, #e3e3e3 0%, #dfdfdf 100%);
       min-height: 100vh;
       display: flex;
       align-items: center;
@@ -49,7 +49,7 @@
     }
 
     .header {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, #868686 0%, #1c1c1c 100%);
       color: white;
       padding: 40px 32px;
       text-align: center;
@@ -404,7 +404,7 @@
               required
               pattern="[0-9]{10}"
             >
-            <p class="form-hint">請輸入您的手機號碼（10 碼）</p>
+            <p class="form-hint" id="linePhoneHint">請輸入您的手機號碼（10 碼）</p>
           </div>
 
           <button type="button" id="lineBindBtn" class="btn btn-line">
@@ -585,7 +585,7 @@
       const info = document.getElementById('lineBindInfo');
       const form = document.getElementById('lineBindForm');
 
-      if (bound && data) {
+      if (bound && data && data.line_user_id) {
         status.className = 'bind-status bound';
         status.innerHTML = '<span>●</span><span>已綁定</span>';
         
@@ -593,7 +593,7 @@
         document.getElementById('lineBindTime').textContent = 
           new Date(data.line_bound_at || data.created_at).toLocaleString('zh-TW');
         
-        // 顯示用戶資料（如果有）
+        // 顯示用戶資料
         if (data.line_display_name) {
           const profile = document.getElementById('lineProfile');
           profile.innerHTML = `
@@ -647,11 +647,6 @@
 
     // 處理 LINE 綁定
     async function handleLineBind() {
-      if (!liffReady || !lineUserId) {
-        showMessage('請在 LINE 應用程式中開啟此頁面', 'error');
-        return;
-      }
-
       const phone = document.getElementById('linePhoneInput').value.trim();
 
       if (!/^[0-9]{10}$/.test(phone)) {
@@ -662,7 +657,19 @@
       setLoading('line', true);
 
       try {
-        const profile = await liff.getProfile();
+        let lineData = {};
+        
+        // 如果在 LINE 環境中，取得完整資料
+        if (liffReady && lineUserId) {
+          const profile = await liff.getProfile();
+          lineData = {
+            line_user_id: lineUserId,
+            line_display_name: profile.displayName,
+            line_picture_url: profile.pictureUrl || null,
+            line_is_blocked: false,
+            line_bound_at: new Date().toISOString()
+          };
+        }
 
         // 檢查是否已存在
         const { data: existing } = await supabaseClient
@@ -673,61 +680,42 @@
 
         if (existing) {
           // 更新現有資料
+          const updateData = liffReady && lineUserId 
+            ? { ...lineData, notify_by_line: true, updated_at: new Date().toISOString() }
+            : { notify_by_line: true, updated_at: new Date().toISOString() };
+          
           const { error } = await supabaseClient
             .from('customer_contacts')
-            .update({
-              line_user_id: lineUserId,
-              line_display_name: profile.displayName,
-              line_picture_url: profile.pictureUrl || null,
-              line_is_blocked: false,
-              line_bound_at: new Date().toISOString(),
-              notify_by_line: true,
-              updated_at: new Date().toISOString()
-            })
+            .update(updateData)
             .eq('phone', phone);
 
           if (error) throw error;
           
-          showMessage('✅ LINE 已更新！', 'success');
-          updateLineStatus(true, {
-            phone,
-            line_display_name: profile.displayName,
-            line_picture_url: profile.pictureUrl,
-            line_bound_at: new Date().toISOString(),
-            email: existing.email
-          });
+          showMessage('✅ LINE 通知已啟用！', 'success');
           
           if (existing.email) {
             updateEmailStatus(true, existing);
           }
         } else {
           // 新增綁定
+          const insertData = liffReady && lineUserId
+            ? { phone, ...lineData, notify_by_line: true, notify_by_email: true }
+            : { phone, notify_by_line: true, notify_by_email: true };
+            
           const { error } = await supabaseClient
             .from('customer_contacts')
-            .insert([{
-              phone: phone,
-              line_user_id: lineUserId,
-              line_display_name: profile.displayName,
-              line_picture_url: profile.pictureUrl || null,
-              line_is_blocked: false,
-              line_bound_at: new Date().toISOString(),
-              notify_by_line: true,
-              notify_by_email: true
-            }]);
+            .insert([insertData]);
 
           if (error) throw error;
           
-          showMessage('✅ LINE 綁定成功！', 'success');
-          updateLineStatus(true, {
-            phone,
-            line_display_name: profile.displayName,
-            line_picture_url: profile.pictureUrl,
-            line_bound_at: new Date().toISOString()
-          });
+          showMessage('✅ LINE 通知綁定成功！', 'success');
         }
 
         currentPhone = phone;
         document.getElementById('emailPhoneInput').value = phone;
+        
+        // 清空表單
+        document.getElementById('linePhoneInput').value = '';
 
       } catch (error) {
         console.error('❌ LINE 綁定失敗:', error);

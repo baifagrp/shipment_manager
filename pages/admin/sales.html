@@ -1161,20 +1161,25 @@
       try {
         console.log('📤 準備發送 LINE 收據給:', transaction.receiver_phone);
 
-        // 查詢 LINE 綁定資訊
+        // 查詢顧客聯絡資訊（從統一的 customer_contacts 表）
         const { data: binding, error: bindingError } = await supabaseClient
-          .from('line_bindings')
-          .select('line_user_id, is_blocked')
+          .from('customer_contacts')
+          .select('line_user_id, line_is_blocked, notify_by_line')
           .eq('phone', transaction.receiver_phone)
           .single();
 
-        if (bindingError || !binding) {
+        if (bindingError || !binding || !binding.line_user_id) {
           console.log('ℹ️ 顧客尚未綁定 LINE，跳過發送收據');
           return false;
         }
 
-        if (binding.is_blocked) {
+        if (binding.line_is_blocked) {
           console.log('⚠️ 顧客已封鎖官方帳號，跳過發送');
+          return false;
+        }
+
+        if (binding.notify_by_line === false) {
+          console.log('ℹ️ 顧客已關閉 LINE 通知，跳過發送');
           return false;
         }
 

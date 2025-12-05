@@ -211,11 +211,23 @@ async function logEmailNotification(logData) {
   }
 
   try {
+    // 先查詢顧客手機號碼（通過 Email）
+    let customerPhone = null;
+    if (logData.email) {
+      const { data: contact } = await supabaseClient
+        .from('customer_contacts')
+        .select('phone')
+        .eq('email', logData.email)
+        .maybeSingle();
+      customerPhone = contact?.phone || null;
+    }
+
     const { error } = await supabaseClient
       .from('email_notifications')
       .insert([{
         shipment_id: logData.shipment_id,
         email: logData.email,
+        customer_phone: customerPhone,  // 新增：關聯到統一表
         notification_type: logData.type,
         status: logData.status,
         error_message: logData.error || null,
@@ -245,10 +257,10 @@ async function getEmailByPhone(phone) {
   }
 
   try {
-    // 嘗試從 email_bindings 表查詢
+    // 從統一的 customer_contacts 表查詢
     const { data, error } = await supabaseClient
-      .from('email_bindings')
-      .select('email')
+      .from('customer_contacts')
+      .select('email, notify_by_email')
       .eq('phone', phone)
       .maybeSingle();
 
@@ -258,6 +270,11 @@ async function getEmailByPhone(phone) {
     }
 
     if (data && data.email) {
+      // 檢查是否啟用 Email 通知
+      if (data.notify_by_email === false) {
+        console.log('ℹ️ 顧客已關閉 Email 通知');
+        return null;
+      }
       console.log('✅ 找到綁定的 Email:', data.email);
       return data.email;
     }

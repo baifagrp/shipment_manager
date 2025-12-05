@@ -55,10 +55,10 @@ async function notifyPackageArrival(phone, shipment) {
     
     // ✅ 統一使用 Flex Message 格式（有無驗證碼都一樣精美）
     
-    // 查詢 LINE 綁定資訊
+    // 查詢 LINE 綁定資訊（從統一的 customer_contacts 表）
     const { data: binding, error } = await supabaseClient
-      .from('line_bindings')
-      .select('line_user_id, is_blocked')
+      .from('customer_contacts')
+      .select('line_user_id, line_is_blocked, notify_by_line')
       .eq('phone', phone)
       .single();
 
@@ -67,8 +67,13 @@ async function notifyPackageArrival(phone, shipment) {
       return false;
     }
 
-    if (binding.is_blocked) {
+    if (binding.line_is_blocked) {
       console.log('⚠️ LINE 使用者已封鎖：', binding.line_user_id);
+      return false;
+    }
+
+    if (binding.notify_by_line === false) {
+      console.log('ℹ️ 顧客已關閉 LINE 通知');
       return false;
     }
 
@@ -121,14 +126,14 @@ async function notifyPackageArrival(phone, shipment) {
  */
 async function notifyVerificationCode(phone, verificationCode, trackingNo, storeName = '', arrivalDate = '') {
   try {
-    // 查詢 LINE 綁定資訊
+    // 查詢 LINE 綁定資訊（從統一的 customer_contacts 表）
     const { data: binding } = await supabaseClient
-      .from('line_bindings')
-      .select('line_user_id, is_blocked')
+      .from('customer_contacts')
+      .select('line_user_id, line_is_blocked, notify_by_line')
       .eq('phone', phone)
       .single();
 
-    if (!binding || binding.is_blocked) {
+    if (!binding || binding.line_is_blocked || binding.notify_by_line === false) {
       return false;
     }
 
@@ -427,13 +432,23 @@ function createArrivalFlexMessage(shipment) {
 async function testLINENotification(phone) {
   try {
     const { data: binding } = await supabaseClient
-      .from('line_bindings')
-      .select('line_user_id')
+      .from('customer_contacts')
+      .select('line_user_id, line_is_blocked, notify_by_line')
       .eq('phone', phone)
       .single();
 
-    if (!binding) {
+    if (!binding || !binding.line_user_id) {
       alert('此手機號碼尚未綁定 LINE');
+      return false;
+    }
+
+    if (binding.line_is_blocked) {
+      alert('此 LINE 用戶已封鎖官方帳號');
+      return false;
+    }
+
+    if (binding.notify_by_line === false) {
+      alert('此顧客已關閉 LINE 通知');
       return false;
     }
 

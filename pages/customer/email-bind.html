@@ -333,22 +333,24 @@
       setLoading(true);
 
       try {
-        // 檢查是否已綁定
-        const { data: existingBinding, error: checkError } = await supabaseClient
-          .from('email_bindings')
+        // 檢查是否已存在聯絡資訊
+        const { data: existingContact, error: checkError } = await supabaseClient
+          .from('customer_contacts')
           .select('*')
           .eq('phone', phone)
           .maybeSingle();
 
         if (checkError) throw checkError;
 
-        if (existingBinding) {
-          // 更新現有綁定
+        if (existingContact) {
+          // 更新現有資料
           const { error: updateError } = await supabaseClient
-            .from('email_bindings')
+            .from('customer_contacts')
             .update({
               email: email,
-              name: name,
+              name: name || existingContact.name,  // 保留原有姓名（如有）
+              email_verified: false,
+              notify_by_email: true,
               updated_at: new Date().toISOString()
             })
             .eq('phone', phone);
@@ -357,14 +359,16 @@
 
           showMessage('✅ Email 已更新！您將收到相關通知。', 'success');
         } else {
-          // 新增綁定
+          // 新增聯絡資訊
           const { error: insertError } = await supabaseClient
-            .from('email_bindings')
+            .from('customer_contacts')
             .insert([{
               phone: phone,
               email: email,
               name: name,
-              verified: false // 可選：未來可實現驗證功能
+              email_verified: false,
+              notify_by_email: true,
+              notify_by_line: true
             }]);
 
           if (insertError) throw insertError;
